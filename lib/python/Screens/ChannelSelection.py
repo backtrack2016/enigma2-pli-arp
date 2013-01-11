@@ -230,10 +230,7 @@ class ChannelContextMenu(Screen):
 
 	def setStartupService(self):
 		config.servicelist.startupservice.value = self.csel.getCurrentSelection().toString()
-		path = ''
-		for i in self.csel.servicePath:
-			path += i.toString()
-			path += ';'
+		path = ';'.join([i.toString() for i in self.csel.servicePath])
 		config.servicelist.startuproot.value = path
 		config.servicelist.startupmode.value = config.servicelist.lastmode.value
 		config.servicelist.save()
@@ -501,13 +498,7 @@ class ChannelSelectionEdit:
 		return None
 
 	def buildBouquetID(self, str):
-		tmp = str.lower()
-		name = ''
-		for c in tmp:
-			if (c >= 'a' and c <= 'z') or (c >= '0' and c <= '9'):
-				name += c
-			else:
-				name += '_'
+		name = re.sub(r'[^.a-z0-9]', "_", str.lower())
 		return name
 
 	def addMarker(self, name):
@@ -1733,10 +1724,7 @@ class ChannelSelectionRadio(ChannelSelectionBase, ChannelSelectionEdit, ChannelS
 		self.servicelist.setPlayableIgnoreService(eServiceReference())
 
 	def saveRoot(self):
-		path = ''
-		for i in self.servicePathRadio:
-			path += i.toString()
-			path += ';'
+		path = ';'.join([i.toString for i in self.servicePathRadio])
 		if path and path != config.radio.lastroot.value:
 			config.radio.lastroot.value = path
 			config.radio.lastroot.save()
