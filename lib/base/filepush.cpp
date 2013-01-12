@@ -132,6 +132,7 @@ void eFilePushThread::thread()
 				continue;
 			}
 			eDebug("eFilePushThread *read error* (%m) - not yet handled");
+			continue; //not sure if we have to continue, but we can not let it go futher
 		}
 
 			/* a read might be mis-aligned in case of a short read. */
