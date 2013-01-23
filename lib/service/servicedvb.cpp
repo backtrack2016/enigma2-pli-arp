@@ -1143,7 +1143,7 @@ void eDVBServicePlay::serviceEvent(int event)
 		break;
 	}
 	case eDVBServicePMTHandler::eventPreStart:
-		loadCuesheet();
+		if (!m_is_stream) loadCuesheet();
 		break;
 	case eDVBServicePMTHandler::eventEOF:
 		m_event((iPlayableService*)this, evEOF);
@@ -1282,6 +1282,8 @@ RESULT eDVBServicePlay::start()
 		 */
 		scrambled = (m_reference.type == eServiceFactoryDVB::id + 0x100);
 		type = eDVBServicePMTHandler::streamclient;
+		//will skip on calling findPMT() for streams, as it is not needed
+		service.setServiceID(eServiceFactoryDVB::id);
 	}
 
 	m_first_program_info = 1;

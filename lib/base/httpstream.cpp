@@ -198,7 +198,12 @@ int eHttpStream::openUrl(const std::string &url, std::string &newurl)
 		toWrite = eSocketBase::timedRead(m_streamSocket, m_rbuffer.ptr(), toWrite, 2000, 50);
 		if (toWrite > 0) {
 			eDebug("%s: writting %i bytes to the ring buffer", __FUNCTION__, toWrite);
+                        ssize_t skipBytes = 0;
+                        char* ptr = m_rbuffer.ptr();
+                        while (skipBytes <= toWrite && ptr[skipBytes] != 0x47) ++skipBytes;
 			m_rbuffer.ptrWriteCommit(toWrite);
+			m_rbuffer.skip(skipBytes);
+
 			if (m_chunkedTransfer) {
 				m_chunkSize -= toWrite;
                                 if (m_chunkSize==0){
