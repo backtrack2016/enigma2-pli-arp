@@ -138,7 +138,7 @@ int eHttpStream::openUrl(const std::string &url, std::string &newurl)
 	const std::string& httpStatus = (pos == std::string::npos)? hdr: hdr.substr(0, pos);
 
 	result = sscanf(httpStatus.c_str(), "%99s %3d %99s", proto, &statuscode, statusmsg);
-	if (result != 3 || (statuscode != 200 && statuscode != 302))
+	if (result != 3 || (statuscode != 200 && statuscode != 206 && statuscode != 302))
 	{
 		eDebug("%s: wrong http response code: %d", __FUNCTION__, statuscode);
 		return -1;
@@ -254,7 +254,7 @@ READAGAIN:
 			}
 			toWrite = MIN(toWrite, m_chunkSize);
 		}
-		if (m_rbuffer.availableToRead() >= (1024*4) || m_rbuffer.availableToRead() >= count) {
+		if (m_rbuffer.availableToRead() >= (1024*6) || m_rbuffer.availableToRead() >= count) {
 			//do not starve the reader if we have enough data to read and there is nothing on the socket
 			toWrite = eSocketBase::timedRead(m_streamSocket, m_rbuffer.ptr(), toWrite, 0, 50);
 		} else {
@@ -277,13 +277,13 @@ READAGAIN:
 			// we failed to read and there is nothing to play, try to reconnect?
 			// so far reconnect worked for me as best effort, it is really doing well 
 			// when initial connection fails for some reason.
-			if (toWrite < 0 && m_tryToReconnect) {
+			// for some reason select() returns EAGAIN
+			if ((toWrite < 0 || errno == EAGAIN) && m_tryToReconnect) {
 				if (open(m_url) == 0) {
 					// tell the caller to try again
 					errno = EAGAIN;
 				}
 				m_tryToReconnect = false;
-				m_rbuffer.reset();
 			} else if (toWrite == 0) {
 				errno = EAGAIN; //timeout
 			} else close();
