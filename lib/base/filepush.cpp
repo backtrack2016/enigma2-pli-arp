@@ -205,6 +205,10 @@ void eFilePushThread::thread()
 			filterRecordData(m_buffer, buf_end);
 			while ((buf_start != buf_end) && !m_stop)
 			{
+				struct pollfd pfd;
+                                pfd.fd = m_fd_dest;
+                                pfd.events = POLLOUT;
+                                if (0 == poll(&pfd, 1, 50)) continue;
 				int w = write(m_fd_dest, m_buffer + buf_start, buf_end - buf_start);
 
 				if (w <= 0)
