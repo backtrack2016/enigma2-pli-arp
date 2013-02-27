@@ -90,11 +90,12 @@ int eStaticServiceDVBInformation::isPlayable(const eServiceReference &ref, const
 	else
 	{
 		eDVBChannelID chid, chid_ignore;
+		int system;
 		((const eServiceReferenceDVB&)ref).getChannelID(chid);
 		((const eServiceReferenceDVB&)ignore).getChannelID(chid_ignore);
-		return res_mgr->canAllocateChannel(chid, chid_ignore);
+		return res_mgr->canAllocateChannel(chid, chid_ignore, system);
 	}
-	return false;
+	return 0;
 }
 
 PyObject *eStaticServiceDVBInformation::getInfoObject(const eServiceReference &r, int what)
@@ -195,6 +196,7 @@ int eStaticServiceDVBBouquetInformation::isPlayable(const eServiceReference &ref
 	{
 		ePtr<iDVBChannelList> db;
 		ePtr<eDVBResourceManager> res;
+		eServiceReference streamable_service;
 
 		if (eDVBResourceManager::getInstance(res))
 		{
@@ -229,40 +231,43 @@ int eStaticServiceDVBBouquetInformation::isPlayable(const eServiceReference &ref
 				{ 1, 2, 3 }, // -T -C -S
 				{ 2, 1, 3 }  // -T -S -C
 			};
+			int system;
 			((const eServiceReferenceDVB&)*it).getChannelID(chid);
-			int tmp=res->canAllocateChannel(chid, chid_ignore, simulate);
-			switch(tmp)
+			int tmp = res->canAllocateChannel(chid, chid_ignore, system, simulate);
+			if (tmp > 0)
 			{
-				case 0:
-					break;
-				case 30000: // cached DVB-T channel
-				case 1: // DVB-T frontend
-					tmp = prio_map[prio_order][2];
-					break;
-				case 40000: // cached DVB-C channel
-				case 2:
-					tmp = prio_map[prio_order][1];
-					break;
-				default: // DVB-S
-					tmp = prio_map[prio_order][0];
-					break;
+				switch (system)
+				{
+					case iDVBFrontend::feTerrestrial:
+						tmp = prio_map[prio_order][2];
+						break;
+					case iDVBFrontend::feCable:
+						tmp = prio_map[prio_order][1];
+						break;
+					default:
+					case iDVBFrontend::feSatellite:
+						tmp = prio_map[prio_order][0];
+						break;
+				}
 			}
 			if (tmp > cur)
 			{
 				m_playable_service = *it;
 				cur = tmp;
 			}
-		}
-		if (cur)
-			return cur;
-		/* fallback to stream (or pvr) service alternative */
-		for (std::list<eServiceReference>::iterator it(bouquet->m_services.begin()); it != bouquet->m_services.end(); ++it)
-		{
 			if (!it->path.empty())
 			{
-				m_playable_service = *it;
-				return 1;
+				streamable_service = *it;
 			}
+		}
+		if (cur)
+		{
+			return cur;
+		}
+		/* fallback to stream (or pvr) service alternative */
+		if (streamable_service)
+		{
+			m_playable_service = streamable_service;
 		}
 	}
 	m_playable_service = eServiceReference();
@@ -534,39 +539,60 @@ RESULT eDVBPVRServiceOfflineOperations::getListOfFilenames(std::list<std::string
 	return 0;
 }
 
-RESULT eDVBPVRServiceOfflineOperations::reindex()
+static int reindex_work(const std::string& filename)
 {
-	const char *filename = m_ref.path.c_str();
-	eDebug("reindexing %s...", filename);
-
-	eMPEGStreamParserTS parser;
-
-	parser.startSave(filename);
+	/* This does not work, need to call parser.setPid(pid, type) otherwise
+	 * the parser will not actually output any data! */
 
 	eRawFile f;
 
-	int err = f.open(m_ref.path.c_str());
+	int err = f.open(filename.c_str());
 	if (err < 0)
-		return -1;
+		return err;
+
+	eMPEGStreamParserTS parser; /* Missing packetsize, should be determined from stream? */
+
+	{
+		eDVBTSTools tstools;
+		tstools.openFile(filename.c_str(), 1);
+		int pcr_pid;
+		err = tstools.findPMT(NULL, NULL, &pcr_pid);
+		if (err)
+		{
+			eDebug("reindex - Failed to find PMT");
+			return err;
+		}
+		eDebug("reindex: pcr_pid=0x%x", pcr_pid);
+		parser.setPid(pcr_pid, -1); /* -1 = automatic MPEG2/h264 detection */
+	}
+
+	parser.startSave(filename);
 
 	off_t offset = 0;
-	off_t length = f.length();
-	unsigned char buffer[188*256*4];
+	std::vector<char> buffer(188*1024);
 	while (1)
 	{
-		eDebug("at %08llx / %08llx (%d %%)", offset, length, (int)(offset * 100 / length));
-		int r = f.read(offset, buffer, sizeof(buffer));
+		int r = f.read(offset, &buffer[0], buffer.size());
 		if (!r)
 			break;
 		if (r < 0)
 			return r;
+		parser.parseData(offset, &buffer[0], r);
 		offset += r;
-		parser.parseData(offset, buffer, r);
 	}
 
 	parser.stopSave();
-
 	return 0;
+}
+
+RESULT eDVBPVRServiceOfflineOperations::reindex()
+{
+	int result;
+	/* Release global interpreter lock */
+	Py_BEGIN_ALLOW_THREADS;
+	result = reindex_work(m_ref.path.c_str());
+	Py_END_ALLOW_THREADS;
+	return result;
 }
 
 DEFINE_REF(eServiceFactoryDVB)
@@ -971,6 +997,7 @@ eDVBServicePlay::eDVBServicePlay(const eServiceReference &ref, eDVBService *serv
 	m_timeshift_enabled(0),
 	m_timeshift_active(0),
 	m_timeshift_changed(0),
+	m_save_timeshift(0),
 	m_timeshift_fd(-1),
 	m_skipmode(0),
 	m_fastforward(0),
@@ -1625,8 +1652,7 @@ RESULT eDVBServicePlay::subServices(ePtr<iSubserviceList> &ptr)
 RESULT eDVBServicePlay::timeshift(ePtr<iTimeshiftService> &ptr)
 {
 	ptr = 0;
-	if (m_have_video_pid &&  // HACK !!! FIXMEE !! temporary no timeshift on radio services !!
-		(m_timeshift_enabled || !m_is_pvr))
+	if (m_timeshift_enabled || !m_is_pvr)
 	{
 		if (!m_timeshift_enabled)
 		{
@@ -2341,15 +2367,39 @@ RESULT eDVBServicePlay::stopTimeshift(bool swToLive)
 		close(m_timeshift_fd);
 		m_timeshift_fd = -1;
 	}
-	eDebug("remove timeshift files");
-	eBackgroundFileEraser::getInstance()->erase(m_timeshift_file);
-	eBackgroundFileEraser::getInstance()->erase(m_timeshift_file + ".sc");
+
+	if (!m_save_timeshift)
+	{
+		eDebug("remove timeshift files");
+		eBackgroundFileEraser::getInstance()->erase(m_timeshift_file);
+		eBackgroundFileEraser::getInstance()->erase(m_timeshift_file + ".sc");
+	}
+	else
+	{
+		eDebug("timeshift files not deleted");
+		m_save_timeshift = 0;
+	}
 	return 0;
 }
 
 int eDVBServicePlay::isTimeshiftActive()
 {
 	return m_timeshift_enabled && m_timeshift_active;
+}
+
+int eDVBServicePlay::isTimeshiftEnabled()
+{
+        return m_timeshift_enabled;
+}
+
+RESULT eDVBServicePlay::saveTimeshiftFile()
+{
+	if (!m_timeshift_enabled)
+                return -1;
+
+	m_save_timeshift = 1;
+
+	return 0;
 }
 
 RESULT eDVBServicePlay::activateTimeshift()
@@ -2364,6 +2414,14 @@ RESULT eDVBServicePlay::activateTimeshift()
 	}
 
 	return -2;
+}
+
+std::string eDVBServicePlay::getTimeshiftFilename()
+{
+	if (m_timeshift_enabled)
+		return m_timeshift_file;
+	else
+		return "";
 }
 
 PyObject *eDVBServicePlay::getCutList()
@@ -2468,7 +2526,7 @@ void eDVBServicePlay::updateTimeshiftPids()
 			if (timing_pid == -1)
 			{
 				timing_pid = i->pid;
-				timing_pid_type = i->type;
+				timing_pid_type = -1;
 			}
 			pids_to_record.insert(i->pid);
 		}
@@ -2784,7 +2842,6 @@ void eDVBServicePlay::loadCuesheet()
 
 	if (f)
 	{
-		eDebug("loading cuts..");
 		while (1)
 		{
 			unsigned long long where;
@@ -2804,7 +2861,7 @@ void eDVBServicePlay::loadCuesheet()
 			m_cue_entries.insert(cueEntry(where, what));
 		}
 		fclose(f);
-		eDebug("%zd entries", m_cue_entries.size());
+		eDebug("cuts file has %zd entries", m_cue_entries.size());
 	} else
 		eDebug("cutfile not found!");
 
@@ -2847,7 +2904,7 @@ void eDVBServicePlay::cutlistToCuesheet()
 	}
 	m_cue->clear();
 
-	if (!m_cutlist_enabled)
+	if ((m_cutlist_enabled & 1) == 0)
 	{
 		m_cue->commitSpans();
 		eDebug("cutlists were disabled");
@@ -3171,38 +3228,62 @@ void eDVBServicePlay::newSubtitlePage(const eDVBTeletextSubtitlePage &page)
 {
 	if (m_subtitle_widget)
 	{
-		pts_t pos = 0;
-		if (m_decoder)
-			m_decoder->getPTS(0, pos);
-//		eDebug("got new subtitle page %lld %lld %d", pos, page.m_pts, page.m_have_pts);
-		if ( !page.m_have_pts && (m_is_pvr || m_timeshift_enabled))
+		int subtitledelay = 0;
+		std::string configvalue;
+		if (!page.m_have_pts && (m_is_pvr || m_timeshift_enabled))
 		{
 			eDebug("Subtitle without PTS and recording");
-
-			std::string configvalue;
-			int subtitledelay = 315000;
+			subtitledelay = 315000;
 			if (!ePythonConfigQuery::getConfigValue("config.subtitles.subtitle_noPTSrecordingdelay", configvalue))
 			{
 				subtitledelay = atoi(configvalue.c_str());
 			}
+		}
+		else
+		{
+			/* check the setting for subtitle delay in live playback, either with pts, or without pts */
+			if (!ePythonConfigQuery::getConfigValue("config.subtitles.subtitle_bad_timing_delay", configvalue))
+			{
+				subtitledelay = atoi(configvalue.c_str());
+			}
+		}
 
-			eDVBTeletextSubtitlePage tmppage;
-			tmppage = page;
-			tmppage.m_have_pts = true;
-			tmppage.m_pts = pos + subtitledelay;
+		if (!page.m_have_pts || subtitledelay)
+		{
+			/* we need to modify the page timing */
+			eDVBTeletextSubtitlePage tmppage = page;
+			if (!page.m_have_pts && m_decoder)
+			{
+				m_decoder->getPTS(0, tmppage.m_pts);
+				tmppage.m_have_pts = true;
+			}
+			tmppage.m_pts += subtitledelay;
 			m_subtitle_pages.push_back(tmppage);
 		}
 		else
+		{
+			/* use the unmodified page */
 			m_subtitle_pages.push_back(page);
+		}
 		checkSubtitleTiming();
 	}
 }
 
 void eDVBServicePlay::checkSubtitleTiming()
 {
+	pts_t pos = 0;
 //	eDebug("checkSubtitleTiming");
 	if (!m_subtitle_widget)
 		return;
+	if (m_subtitle_pages.empty() && m_dvb_subtitle_pages.empty())
+	{
+		return;
+	}
+	if (m_decoder)
+	{
+		m_decoder->getPTS(0, pos);
+	}
+
 	while (1)
 	{
 		enum { TELETEXT, DVB } type;
@@ -3224,31 +3305,23 @@ void eDVBServicePlay::checkSubtitleTiming()
 		else
 			return;
 
-		pts_t pos = 0;
-
-		if (m_decoder)
-			m_decoder->getPTS(0, pos);
-
 //		eDebug("%lld %lld", pos, show_time);
 		int diff = show_time - pos;
 
-		if ((diff/90)<20 || diff > 1800000 || (type == TELETEXT && !page.m_have_pts))
+		if ((diff / 90) < 20 || diff > 1800000)
 		{
 			if (type == TELETEXT)
 			{
-				eDebug("display teletext subtitle page %lld", show_time);
 				m_subtitle_widget->setPage(page);
 				m_subtitle_pages.pop_front();
 			}
 			else
 			{
-				eDebug("display dvb subtitle Page %lld", show_time);
 				m_subtitle_widget->setPage(dvb_page);
 				m_dvb_subtitle_pages.pop_front();
 			}
 		} else
 		{
-			eDebug("start subtitle delay %d", diff / 90);
 			m_subtitle_sync_timer->start(diff / 90, 1);
 			break;
 		}
@@ -3262,11 +3335,8 @@ void eDVBServicePlay::newDVBSubtitlePage(const eDVBSubtitlePage &p)
 		pts_t pos = 0;
 		if (m_decoder)
 			m_decoder->getPTS(0, pos);
-		eDebug("got new subtitle page %lld %lld", pos, p.m_show_time);
 		if ( abs(pos-p.m_show_time)>1800000 && (m_is_pvr || m_timeshift_enabled))
 		{
-			eDebug("Subtitle without PTS and recording");
-
 			std::string configvalue;
 			int subtitledelay = 315000;
 			if (!ePythonConfigQuery::getConfigValue("config.subtitles.subtitle_noPTSrecordingdelay", configvalue))
@@ -3280,7 +3350,23 @@ void eDVBServicePlay::newDVBSubtitlePage(const eDVBSubtitlePage &p)
 			m_dvb_subtitle_pages.push_back(tmppage);
 		}
 		else
-			m_dvb_subtitle_pages.push_back(p);
+		{
+			int subtitledelay = 0;
+			std::string configvalue;
+			if(!ePythonConfigQuery::getConfigValue("config.subtitles.subtitle_bad_timing_delay", configvalue))
+			{
+				subtitledelay = atoi(configvalue.c_str());
+			}
+			if (subtitledelay != 0)
+			{
+				eDVBSubtitlePage tmppage;
+				tmppage = p;
+				tmppage.m_show_time += subtitledelay;
+				m_dvb_subtitle_pages.push_back(tmppage);
+			}
+			else
+				m_dvb_subtitle_pages.push_back(p);
+		}
 		checkSubtitleTiming();
 	}
 }

@@ -5,6 +5,7 @@ from enigma import setTunerTypePriorityOrder, setPreferredTuner, setSpinnerOnOff
 from enigma import Misc_Options, eEnv;
 from Components.NimManager import nimmanager
 from Components.Harddisk import harddiskmanager
+from Components.ServiceList import refreshServiceList
 from SystemInfo import SystemInfo
 import os
 import enigma
@@ -19,6 +20,9 @@ def InitUsageConfig():
 		enigma.eDVBDB.getInstance().setNumberingMode(configElement.value)
 		refreshServiceList()
 	config.usage.alternative_number_mode.addNotifier(alternativeNumberModeChange)
+
+	config.usage.hide_number_markers = ConfigYesNo(default = False)
+	config.usage.hide_number_markers.addNotifier(refreshServiceList)
 
 	config.usage.multiepg_ask_bouquet = ConfigYesNo(default = False)
 	
@@ -84,6 +88,16 @@ def InitUsageConfig():
 		("shutdown", _("Immediate shutdown")),
 		("standby", _("Standby")) ] )
 
+	choicelist = [("0", "Do nothing")]
+	for i in range(-3600, -21601, -3600):
+		h = -i / 3600
+		choicelist.append(("%d" % i, "Shutdown in " + ngettext("%d hour", "%d hours", h) % h))
+	for i in range(3600, 21601, 3600):
+		h = i / 3600
+		choicelist.append(("%d" % i, "Standby in " + ngettext("%d hour", "%d hours", h) % h))
+	config.usage.inactivity_timer = ConfigSelection(default = "0", choices = choicelist)
+
+	config.usage.check_timeshift = ConfigYesNo(default = True)
 
 	config.usage.alternatives_priority = ConfigSelection(default = "0", choices = [
 		("0", "DVB-S/-C/-T"),
@@ -270,14 +284,19 @@ def InitUsageConfig():
 	config.subtitles.subtitle_rewrap = ConfigYesNo(default = False)
 	config.subtitles.subtitle_borderwidth = ConfigSelection(choices = ["1", "2", "3", "4", "5"], default = "3")
 	config.subtitles.subtitle_fontsize  = ConfigSelection(choices = ["16", "18", "20", "22", "24", "26", "28", "30", "32", "34", "36", "38", "40", "42", "44", "46", "48", "50", "52", "54"], default = "34")
-	choicelist = []
-	for i in range(45000, 945000, 45000):
-		choicelist.append(("%d" % i, "%2.1f sec" % (i / 90000.)))
-	config.subtitles.subtitle_noPTSrecordingdelay = ConfigSelection(default = "315000", choices = [("0", _("No delay"))] + choicelist)
+
+	subtitle_delay_choicelist = []
+	for i in range(-900000, 945000, 45000):
+		if i == 0:
+			subtitle_delay_choicelist.append(("0", _("No delay")))
+		else:
+			subtitle_delay_choicelist.append(("%d" % i, "%2.1f sec" % (i / 90000.)))
+	config.subtitles.subtitle_noPTSrecordingdelay = ConfigSelection(default = "315000", choices = subtitle_delay_choicelist)
 
 	config.subtitles.dvb_subtitles_yellow = ConfigYesNo(default = False)
 	config.subtitles.dvb_subtitles_original_position = ConfigSelection(default = "0", choices = [("0", _("Original")), ("1", _("Fixed")), ("2", _("Relative"))])
 	config.subtitles.dvb_subtitles_centered = ConfigYesNo(default = False)
+	config.subtitles.subtitle_bad_timing_delay = ConfigSelection(default = "0", choices = subtitle_delay_choicelist)
 	config.subtitles.dvb_subtitles_backtrans = ConfigSelection(default = "0", choices = [
 		("0", _("No transparency")),
 		("25", "10%"),
@@ -291,6 +310,14 @@ def InitUsageConfig():
 		("225", "90%"),
 		("255", _("Full transparency"))])
 	config.subtitles.pango_subtitles_yellow = ConfigYesNo(default = False)
+	config.subtitles.pango_subtitles_delay = ConfigSelection(default = "0", choices = subtitle_delay_choicelist)
+	config.subtitles.pango_subtitles_fps = ConfigSelection(default = "1", choices = [
+		("1", _("Original")),
+		("23976", _("23.976")),
+		("24000", _("24")),
+		("25000", _("25")),
+		("29970", _("29.97")),
+		("30000", _("30"))])
 
 	config.autolanguage = ConfigSubsection()
 	audio_language_choices=[
@@ -312,7 +339,7 @@ def InitUsageConfig():
 		("heb", _("Hebrew")),
 		("hun", _("Hungarian")),
 		("ita", _("Italian")),
-		("lat", _("Latvian")),
+		("lav", _("Latvian")),
 		("lit", _("Lithuanian")),
 		("ltz", _("Luxembourgish")),
 		("nor", _("Norwegian")),
@@ -398,11 +425,3 @@ def preferredInstantRecordPath():
 
 def defaultMoviePath():
 	return config.usage.default_path.value
-
-def refreshServiceList(configElement = None):
-		from Screens.InfoBar import InfoBar
-		InfoBarInstance = InfoBar.instance
-		if InfoBarInstance is not None:
-			servicelist = InfoBarInstance.servicelist
-			if servicelist:
-				servicelist.setMode()

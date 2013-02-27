@@ -462,7 +462,7 @@ eServiceMP3::eServiceMP3(eServiceReference ref)
 		else
 		{
 			m_subs_to_pull_handler_id = g_signal_connect (subsink, "new-buffer", G_CALLBACK (gstCBsubtitleAvail), this);
-			g_object_set (G_OBJECT (subsink), "caps", gst_caps_from_string("text/plain; text/x-plain; text/x-pango-markup; video/x-dvd-subpicture; subpicture/x-pgs"), NULL);
+			g_object_set (G_OBJECT (subsink), "caps", gst_caps_from_string("text/plain; text/x-plain; text/x-raw; text/x-pango-markup; video/x-dvd-subpicture; subpicture/x-pgs"), NULL);
 			g_object_set (G_OBJECT (m_gst_playbin), "text-sink", subsink, NULL);
 			g_object_set (G_OBJECT (m_gst_playbin), "current-text", m_currentSubtitleStream, NULL);
 		}
@@ -1093,14 +1093,7 @@ RESULT eServiceMP3::seekRelative(int direction, pts_t to)
 #ifndef ENABLE_LIBEPLAYER3
 gint eServiceMP3::match_sinktype(GstElement *element, gpointer type)
 {
-	gint retval = strcmp(g_type_name(G_OBJECT_TYPE(element)), (const char*)type);
-#if GST_VERSION_MAJOR < 1
-	if (retval)
-	{
-		gst_object_unref(element);
-	}
-#endif
-	return retval;
+	return strcmp(g_type_name(G_OBJECT_TYPE(element)), (const char*)type);
 }
 #endif
 
@@ -1727,22 +1720,27 @@ subtype_t getSubtitleType(GstPad* pad, gchar *g_codec=NULL)
 		caps = gst_pad_get_allowed_caps(pad);
 	}
 
-	if ( caps )
+	if (caps && !gst_caps_is_empty(caps))
 	{
 		GstStructure* str = gst_caps_get_structure(caps, 0);
-		const gchar *g_type = gst_structure_get_name(str);
-		eDebug("getSubtitleType::subtitle probe caps type=%s", g_type);
-
-		if ( !strcmp(g_type, "video/x-dvd-subpicture") )
-			type = stVOB;
-		else if ( !strcmp(g_type, "text/x-pango-markup") )
-			type = stSRT;
-		else if ( !strcmp(g_type, "text/plain") )
-			type = stPlainText;
-		else if ( !strcmp(g_type, "subpicture/x-pgs") )
-			type = stPGS;
-		else
-			eDebug("getSubtitleType::unsupported subtitle caps %s (%s)", g_type, g_codec ? g_codec : "(null)");
+		if (str)
+		{
+			const gchar *g_type = gst_structure_get_name(str);
+			eDebug("getSubtitleType::subtitle probe caps type=%s", g_type ? g_type : "(null)");
+			if (g_type)
+			{
+				if ( !strcmp(g_type, "video/x-dvd-subpicture") )
+					type = stVOB;
+				else if ( !strcmp(g_type, "text/x-pango-markup") )
+					type = stSRT;
+				else if ( !strcmp(g_type, "text/plain") || !strcmp(g_type, "text/x-plain") || !strcmp(g_type, "text/x-raw") )
+					type = stPlainText;
+				else if ( !strcmp(g_type, "subpicture/x-pgs") )
+					type = stPGS;
+				else
+					eDebug("getSubtitleType::unsupported subtitle caps %s (%s)", g_type, g_codec ? g_codec : "(null)");
+			}
+		}
 	}
 	else if ( g_codec )
 	{
@@ -1813,7 +1811,7 @@ void eServiceMP3::gstBusCall(GstMessage *msg)
 				case GST_STATE_CHANGE_READY_TO_PAUSED:
 				{
 #if GST_VERSION_MAJOR >= 1
-					GValue element;
+					GValue element = { 0, };
 #endif
 					GstIterator *children;
 					GstElement *subsink = gst_bin_get_by_name(GST_BIN(m_gst_playbin), "subtitle_sink");
@@ -1859,8 +1857,8 @@ void eServiceMP3::gstBusCall(GstMessage *msg)
 #else
 					if (gst_iterator_find_custom(children, (GCompareFunc)match_sinktype, &element, (gpointer)"GstDVBAudioSink"))
 					{
-						audioSink = GST_ELEMENT_CAST(&element);
-						gst_object_ref(audioSink);
+						audioSink = g_value_dup_object(&element);
+						g_value_unset(&element);
 					}
 #endif
 					gst_iterator_free(children);
@@ -1870,8 +1868,8 @@ void eServiceMP3::gstBusCall(GstMessage *msg)
 #else
 					if (gst_iterator_find_custom(children, (GCompareFunc)match_sinktype, &element, (gpointer)"GstDVBVideoSink"))
 					{
-						videoSink = GST_ELEMENT_CAST(&element);
-						gst_object_ref(videoSink);
+						videoSink = g_value_dup_object(&element);
+						g_value_unset(&element);
 					}
 #endif
 					gst_iterator_free(children);
@@ -1992,8 +1990,7 @@ void eServiceMP3::gstBusCall(GstMessage *msg)
 		{
 			if(GST_MESSAGE_SRC(msg) != GST_OBJECT(m_gst_playbin))
 				break;
-
-			GstTagList *tags;
+			
 			gint i, n_video = 0, n_audio = 0, n_text = 0;
 
 			g_object_get (m_gst_playbin, "n-video", &n_video, NULL);
@@ -2012,6 +2009,7 @@ void eServiceMP3::gstBusCall(GstMessage *msg)
 			{
 				audioStream audio;
 				gchar *g_codec, *g_lang;
+				GstTagList *tags = NULL;
 				GstPad* pad = 0;
 				g_signal_emit_by_name (m_gst_playbin, "get-audio-pad", i, &pad);
 #if GST_VERSION_MAJOR < 1
@@ -2029,7 +2027,6 @@ void eServiceMP3::gstBusCall(GstMessage *msg)
 				audio.codec = g_type;
 				g_codec = NULL;
 				g_lang = NULL;
-				tags = NULL;
 				g_signal_emit_by_name (m_gst_playbin, "get-audio-tags", i, &tags);
 #if GST_VERSION_MAJOR < 1
 				if (tags && gst_is_tag_list(tags))
@@ -2057,10 +2054,10 @@ void eServiceMP3::gstBusCall(GstMessage *msg)
 			for (i = 0; i < n_text; i++)
 			{
 				gchar *g_codec = NULL, *g_lang = NULL;
+				GstTagList *tags = NULL;
 				g_signal_emit_by_name (m_gst_playbin, "get-text-tags", i, &tags);
 				subtitleStream subs;
 				subs.language_code = "und";
-				tags = NULL;
 #if GST_VERSION_MAJOR < 1
 				if (tags && gst_is_tag_list(tags))
 #else
@@ -2486,6 +2483,19 @@ void eServiceMP3::pullSubtitle(GstBuffer *buffer)
 		{
 			if ( m_subtitleStreams[m_currentSubtitleStream].type < stVOB )
 			{
+				int delay = 0;
+				std::string configvalue;
+				if(ePythonConfigQuery::getConfigValue("config.subtitles.pango_subtitles_delay", configvalue)==0)
+					delay = atoi(configvalue.c_str());
+
+				int subtitle_fps = 1; // = original
+				if(ePythonConfigQuery::getConfigValue("config.subtitles.pango_subtitles_fps", configvalue)==0)
+					subtitle_fps = atoi(configvalue.c_str());
+
+				double convert_fps = 1.0;
+				if (subtitle_fps > 1 && m_framerate > 0)
+					convert_fps = subtitle_fps / (double)m_framerate;
+
 				unsigned char line[len+1];
 				SubtitlePage page;
 #if GST_VERSION_MAJOR < 1
@@ -2498,7 +2508,7 @@ void eServiceMP3::pullSubtitle(GstBuffer *buffer)
 				gRGB rgbcol(0xD0,0xD0,0xD0);
 				page.type = SubtitlePage::Pango;
 				page.pango_page.m_elements.push_back(ePangoSubtitlePageElement(rgbcol, (const char*)line));
-				page.pango_page.m_show_pts = buf_pos / 11111L;
+				page.pango_page.m_show_pts = buf_pos / 11111L * convert_fps + delay;
 				page.pango_page.m_timeout = duration_ns / 1000000;
 				m_subtitle_pages.push_back(page);
 				if (m_subtitle_pages.size()==1)

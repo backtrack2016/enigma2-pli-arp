@@ -85,10 +85,10 @@ class ServiceInfo(Screen):
 			self.feinfo = None
 		else:
 			self.type = TYPE_SERVICE_INFO
-			self["red"] = Label(_("Service"))
-			self["green"] = Label(_("PIDs"))
-			self["yellow"] = Label(_("Multiplex"))
-			self["blue"] = Label(_("Tuner status"))
+			self["key_red"] = self["red"] = Label(_("Service"))
+			self["key_green"] = self["green"] = Label(_("PIDs"))
+			self["key_yellow"] = self["yellow"] = Label(_("Multiplex"))
+			self["key_blue"] = self["blue"] = Label(_("Tuner status"))
 			service = session.nav.getCurrentService()
 			if service is not None:
 				self.info = service.info()
@@ -104,9 +104,9 @@ class ServiceInfo(Screen):
 
 	def information(self):
 		if self.type == TYPE_SERVICE_INFO:
-			if self.session.nav.getCurrentlyPlayingServiceReference():
-				name = ServiceReference(self.session.nav.getCurrentlyPlayingServiceReference(False)).getServiceName()
-				refstr = self.session.nav.getCurrentlyPlayingServiceReference(False).toString()
+			if self.session.nav.getCurrentlyPlayingServiceOrGroup():
+				name = ServiceReference(self.session.nav.getCurrentlyPlayingServiceReference()).getServiceName()
+				refstr = self.session.nav.getCurrentlyPlayingServiceReference().toString()
 			else:
 				name = _("N/A")
 				refstr = _("N/A")
@@ -192,7 +192,7 @@ class ServiceInfo(Screen):
 		if frontendDataOrg and len(frontendDataOrg):
 			frontendData = ConvertToHumanReadable(frontendDataOrg)
 			if frontendDataOrg["tuner_type"] == "DVB-S":
-				return ((_("NIM"), ('A', 'B', 'C', 'D')[frontendData["tuner_number"]], TYPE_TEXT),
+				return ((_("NIM"), chr(ord('A') + frontendData["tuner_number"]), TYPE_TEXT),
 						(_("Type"), frontendData["tuner_type"], TYPE_TEXT),
 						(_("System"), frontendData["system"], TYPE_TEXT),
 						(_("Modulation"), frontendData["modulation"], TYPE_TEXT),
@@ -206,7 +206,7 @@ class ServiceInfo(Screen):
 						(_("Roll-off"), frontendData.get("rolloff", None), TYPE_TEXT),
 						(_("Input Stream ID"), frontendData.get("is_id", 0), TYPE_VALUE_DEC))
 			elif frontendDataOrg["tuner_type"] == "DVB-C":
-				return ((_("NIM"), ('A', 'B', 'C', 'D')[frontendData["tuner_number"]], TYPE_TEXT),
+				return ((_("NIM"), chr(ord('A') + frontendData["tuner_number"]), TYPE_TEXT),
 						(_("Type"), frontendData["tuner_type"], TYPE_TEXT),
 						(_("Modulation"), frontendData["modulation"], TYPE_TEXT),
 						(_("Frequency"), frontendData["frequency"], TYPE_VALUE_DEC),
@@ -214,7 +214,7 @@ class ServiceInfo(Screen):
 						(_("Inversion"), frontendData["inversion"], TYPE_TEXT),
 						(_("FEC"), frontendData["fec_inner"], TYPE_TEXT))
 			elif frontendDataOrg["tuner_type"] == "DVB-T":
-				return ((_("NIM"), ('A', 'B', 'C', 'D')[frontendData["tuner_number"]], TYPE_TEXT),
+				return ((_("NIM"), chr(ord('A') + frontendData["tuner_number"]), TYPE_TEXT),
 						(_("Type"), frontendData["tuner_type"], TYPE_TEXT),
 						(_("Frequency"), frontendData["frequency"], TYPE_VALUE_DEC),
 						(_("Inversion"), frontendData["inversion"], TYPE_TEXT),
