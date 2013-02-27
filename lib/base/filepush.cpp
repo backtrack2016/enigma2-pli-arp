@@ -34,7 +34,9 @@ eFilePushThread::eFilePushThread(int io_prio_class, int io_prio_level, int block
 
 eFilePushThread::~eFilePushThread()
 {
-	free(m_buffer);
+	if (m_buffer) {
+		free(m_buffer);
+	}
 }
 
 static void signal_handler(int x)
@@ -43,6 +45,11 @@ static void signal_handler(int x)
 
 void eFilePushThread::thread()
 {
+	if (m_buffer == NULL) {
+		eFatal("Failed to allocate %d bytes", m_buffersize);
+		return;
+	}
+
 	int eofcount = 0;
 	setIoPrio(prio_class, prio);
 	int buf_end = 0;
@@ -233,11 +240,11 @@ void eFilePushThread::thread()
 #if defined(__sh__) // Fix to ensure that event evtEOF is called at end of playbackl part 3/3
 			already_empty=false;
 #endif
-
-			if (m_sg)
+			m_current_position+=buf_end;
+			if (m_sg) {
 				current_span_remaining -= buf_end;
-				m_current_position+=buf_end;
 				bytes_read += buf_end;
+			}
 		}
 	}
 #if defined(__sh__) // closes video device for the reverse playback workaround
