@@ -53,7 +53,7 @@ enigma2_LDADD = \
 	@PTHREAD_LIBS@ \
 	@PYTHON_LDFLAGS@ \
 	@LIBDDVD_LIBS@ \
-	-ltuxtxt -ltuxtxt32bpp -lcrypt -lrt
+	-ltuxtxt -ltuxtxt32bpp -lcrypt -lrt \
 	-ldl -lpthread -lcrypt -lresolv -lmmeimage
 
 if ENABLE_LIBEPLAYER3
