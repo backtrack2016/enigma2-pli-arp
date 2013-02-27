@@ -121,7 +121,7 @@ class VFDIcons:
 		else:
 			self.__event_tracker = ServiceEventTracker(screen = self,eventmap =
 				{
-					iPlayableService.evUpdatedInfo: self.WriteName
+					iPlayableService.evStart: self.WriteName,
 				})
 
 	def UpdatedInfo(self):
