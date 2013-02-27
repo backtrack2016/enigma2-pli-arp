@@ -6,7 +6,7 @@ from Components.SystemInfo import SystemInfo
 from GlobalActions import globalActionMap
 from enigma import eDVBVolumecontrol
 from subprocess import call
-import os
+
 inStandby = None
 
 class Standby(Screen):
