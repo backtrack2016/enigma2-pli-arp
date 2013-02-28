@@ -31,6 +31,7 @@ class eHttpStream: public iTsSource, public Object
 	off_t offset();
 	int valid();
 	int close();
+	int openStream(const std::string& url);
 
 public:
 	eHttpStream();

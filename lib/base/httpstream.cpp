@@ -26,6 +26,12 @@ eHttpStream::~eHttpStream()
 
 int eHttpStream::open(const std::string& url)
 {
+	m_url = url;
+	return 0;
+}
+
+int eHttpStream::openStream(const std::string& url)
+{
 	eDebug("eHttpStream::open()");
 	std::string currenturl(url), newurl;
 
@@ -235,9 +241,10 @@ ssize_t eHttpStream::read(off_t offset, void *buf, size_t count)
 {
 	if (m_streamSocket < 0) {
 		eDebug("eHttpStream::read not valid fd");
-		return -1;
+		if (openStream(m_url) < 0) return -1;
 	}
-	int read3Chunks=3;
+
+	int read2Chunks=22;
 	eDebug("eHttpStream::read()");
 READAGAIN:
 	ssize_t toWrite = m_rbuffer.availableToWritePtr();
@@ -264,11 +271,14 @@ READAGAIN:
 			eDebug("eHttpStream::read() - writting %i bytes to the ring buffer", toWrite);
 			m_rbuffer.ptrWriteCommit(toWrite);
 			if (m_chunkedTransfer) {
+                                --read2Chunks;
 				m_chunkSize -= toWrite;
 				if (m_chunkSize==0){
 					int rc = eSocketBase::readLine(m_streamSocket, &m_lbuff, &m_lbuffSize);
 					eDebug("eHttpStream::read() - reading the end of the chunk rc(%i)(%s)", rc, m_lbuff);
-				} else goto READAGAIN;
+				} else if (read2Chunks > 0) {
+					goto READAGAIN;
+				}
 			}
 			//try to reconnect on next failure
 			m_tryToReconnect = true;
