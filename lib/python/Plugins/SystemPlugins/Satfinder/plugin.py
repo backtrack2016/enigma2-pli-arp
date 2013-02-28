@@ -232,9 +232,9 @@ class Satfinder(ScanSetup):
 				else:
 					mod = "Auto"
 				if x[10] < 0 or x[10] > 255:
-					e = str(x[1]) + "," + str(x[2]) + "," + pol + "," + std + "," + mod + "," + fec
+					e = "%d %s %d %s %s %s" % ((x[1] / 1000), pol, (x[2] / 1000), std, mod, fec)
 				else:
-					e = str(x[1]) + "," + str(x[2]) + "," + pol + "," + std + "," + mod + "," + fec + "," + str(x[10])
+					e = "%d %s %d %s %s %s %d" % ((x[1] / 1000), pol, (x[2] / 1000), std, mod, fec, (x[10] / 1000))
 				if default is None:
 					default = str(index)
 				list.append((str(index), e))
