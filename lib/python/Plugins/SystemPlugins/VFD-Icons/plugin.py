@@ -134,10 +134,14 @@ class VFDIcons:
 			if config.plugins.vfdicon.displayshow.value != "blank":
 				service = self.session.nav.getCurrentlyPlayingServiceOrGroup()
 				if service:
-					if config.plugins.vfdicon.displayshow.value == "channel number":
-						servicename = str(service.getChannelNum())
+					path = service.getPath()
+					if path:
+						servicename = "PLAY"
 					else:
-						servicename = ServiceReference(service).getServiceName()
+						if config.plugins.vfdicon.displayshow.value == "channel number":
+							servicename = str(service.getChannelNum())
+						else:
+							servicename = ServiceReference(service).getServiceName()
 			print "[VFD Display] text ", servicename[0:20]
 			evfd.getInstance().vfd_write_string(servicename[0:20])
 
