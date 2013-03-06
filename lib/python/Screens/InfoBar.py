@@ -1,4 +1,5 @@
 from Tools.Profile import profile
+from Tools.BoundFunction import boundFunction
 
 # workaround for required config entry dependencies.
 import Screens.MovieSelection
@@ -15,12 +16,12 @@ from enigma import iServiceInformation
 profile("LOAD:InfoBarGenerics")
 from Screens.InfoBarGenerics import InfoBarShowHide, \
 	InfoBarNumberZap, InfoBarChannelSelection, InfoBarMenu, InfoBarRdsDecoder, \
-	InfoBarEPG, InfoBarSeek, InfoBarInstantRecord, InfoBarRedButton, \
+	InfoBarEPG, InfoBarSeek, InfoBarInstantRecord, InfoBarRedButton, InfoBarTimerButton, \
 	InfoBarAudioSelection, InfoBarAdditionalInfo, InfoBarNotifications, InfoBarDish, InfoBarUnhandledKey, \
 	InfoBarSubserviceSelection, InfoBarShowMovies, InfoBarTimeshift,  \
 	InfoBarServiceNotifications, InfoBarPVRState, InfoBarCueSheetSupport, InfoBarSimpleEventView, \
 	InfoBarSummarySupport, InfoBarMoviePlayerSummarySupport, InfoBarTimeshiftState, InfoBarTeletextPlugin, InfoBarExtensions, \
-	InfoBarSubtitleSupport, InfoBarPiP, InfoBarPlugins, InfoBarServiceErrorPopupSupport, InfoBarJobman, \
+	InfoBarSubtitleSupport, InfoBarPiP, InfoBarPlugins, InfoBarServiceErrorPopupSupport, InfoBarJobman, InfoBarInactivity, \
 	InfoBarAspectSelection, InfoBarSleepTimer, setResumePoint, delResumePoint
 
 profile("LOAD:InitBar_Components")
@@ -33,11 +34,11 @@ from Screens.HelpMenu import HelpableScreen
 
 class InfoBar(InfoBarBase, InfoBarShowHide,
 	InfoBarNumberZap, InfoBarChannelSelection, InfoBarMenu, InfoBarEPG, InfoBarRdsDecoder,
-	InfoBarInstantRecord, InfoBarAudioSelection, InfoBarRedButton,
+	InfoBarInstantRecord, InfoBarAudioSelection, InfoBarRedButton, InfoBarTimerButton,
 	HelpableScreen, InfoBarAdditionalInfo, InfoBarNotifications, InfoBarDish, InfoBarUnhandledKey,
 	InfoBarSubserviceSelection, InfoBarTimeshift, InfoBarSeek,
 	InfoBarSummarySupport, InfoBarTimeshiftState, InfoBarTeletextPlugin, InfoBarExtensions,
-	InfoBarPiP, InfoBarPlugins, InfoBarSubtitleSupport, InfoBarServiceErrorPopupSupport, InfoBarJobman,
+	InfoBarPiP, InfoBarPlugins, InfoBarSubtitleSupport, InfoBarServiceErrorPopupSupport, InfoBarJobman, InfoBarInactivity,
 	InfoBarAspectSelection, InfoBarSleepTimer, Screen):
 	
 	ALLOW_SUSPEND = True
@@ -60,10 +61,10 @@ class InfoBar(InfoBarBase, InfoBarShowHide,
 		for x in HelpableScreen, \
 				InfoBarBase, InfoBarShowHide, \
 				InfoBarNumberZap, InfoBarChannelSelection, InfoBarMenu, InfoBarEPG, InfoBarRdsDecoder, \
-				InfoBarInstantRecord, InfoBarAudioSelection, InfoBarRedButton, InfoBarUnhandledKey, \
+				InfoBarInstantRecord, InfoBarAudioSelection, InfoBarRedButton, InfoBarTimerButton, InfoBarUnhandledKey, \
 				InfoBarAdditionalInfo, InfoBarNotifications, InfoBarDish, InfoBarSubserviceSelection, \
 				InfoBarTimeshift, InfoBarSeek, InfoBarSummarySupport, InfoBarTimeshiftState, \
-				InfoBarTeletextPlugin, InfoBarExtensions, InfoBarPiP, InfoBarSubtitleSupport, InfoBarJobman, \
+				InfoBarTeletextPlugin, InfoBarExtensions, InfoBarPiP, InfoBarSubtitleSupport, InfoBarJobman, InfoBarInactivity, \
 				InfoBarAspectSelection, InfoBarSleepTimer, InfoBarPlugins, InfoBarServiceErrorPopupSupport:
 			x.__init__(self)
 
@@ -163,14 +164,14 @@ class InfoBar(InfoBarBase, InfoBarShowHide,
 		self.rds_display.show()  # in InfoBarRdsDecoder
 
 	def showMovies(self, defaultRef=None):
-		self.lastservice = self.session.nav.getCurrentlyPlayingServiceReference()
-		self.session.openWithCallback(self.movieSelected, Screens.MovieSelection.MovieSelection, defaultRef)
+		self.lastservice = self.session.nav.getCurrentlyPlayingServiceOrGroup()
+		self.session.openWithCallback(self.movieSelected, Screens.MovieSelection.MovieSelection, defaultRef, timeshiftEnabled = self.timeshift_enabled)
 
 	def movieSelected(self, service):
 		ref = self.lastservice
 		del self.lastservice
 		if service is None:
-			if ref and not self.session.nav.getCurrentlyPlayingServiceReference():
+			if ref and not self.session.nav.getCurrentlyPlayingServiceOrGroup():
 				self.session.nav.playService(ref)
 		else:
 			self.session.open(MoviePlayer, service, slist = self.servicelist, lastservice = ref)
@@ -215,7 +216,7 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, \
 			x.__init__(self)
 
 		self.servicelist = slist
-		self.lastservice = lastservice or session.nav.getCurrentlyPlayingServiceReference()
+		self.lastservice = lastservice or session.nav.getCurrentlyPlayingServiceOrGroup()
 		session.nav.playService(service)
 		self.cur_service = service
 		self.returning = False
@@ -269,7 +270,7 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, \
 		answer = answer and answer[1]
 
 		if answer in ("quitanddelete", "quitanddeleteconfirmed"):
-			ref = self.session.nav.getCurrentlyPlayingServiceReference()
+			ref = self.session.nav.getCurrentlyPlayingServiceOrGroup()
 			serviceHandler = enigma.eServiceCenter.getInstance()
 			if answer == "quitanddelete":
 				msg = ''
@@ -304,7 +305,7 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, \
 #+++<
 			self.close()
 		elif answer == "movielist":
-			ref = self.session.nav.getCurrentlyPlayingServiceReference()
+			ref = self.session.nav.getCurrentlyPlayingServiceOrGroup()
 			self.returning = True
 			self.session.openWithCallback(self.movieSelected, Screens.MovieSelection.MovieSelection, ref)
 #+++>
@@ -336,7 +337,7 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, \
 			return
 		if not playing :
 			return
-		ref = self.session.nav.getCurrentlyPlayingServiceReference()
+		ref = self.session.nav.getCurrentlyPlayingServiceOrGroup()
 		if ref:
 			delResumePoint(ref)
 		self.handleLeave(config.usage.on_movie_eof.value)
@@ -420,7 +421,7 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, \
 		pass
 
 	def showMovies(self):
-		ref = self.session.nav.getCurrentlyPlayingServiceReference()
+		ref = self.session.nav.getCurrentlyPlayingServiceOrGroup()
 		self.playingservice = ref # movie list may change the currently playing
 		self.session.openWithCallback(self.movieSelected, Screens.MovieSelection.MovieSelection, ref)
 
@@ -437,7 +438,7 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, \
 			ref = self.playingservice
 			del self.playingservice
 			# no selection? Continue where we left off
-			if ref and not self.session.nav.getCurrentlyPlayingServiceReference():
+			if ref and not self.session.nav.getCurrentlyPlayingServiceOrGroup():
 				self.session.nav.playService(ref)
 
 	def nextPlaylistService(self, service):

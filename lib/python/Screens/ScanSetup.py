@@ -7,6 +7,7 @@ from Components.ConfigList import ConfigListScreen
 from Components.NimManager import nimmanager, getConfigSatlist
 from Components.Label import Label
 from Tools.HardwareInfo import HardwareInfo
+from Screens.InfoBar import InfoBar
 from Screens.MessageBox import MessageBox
 from enigma import eTimer, eDVBFrontendParametersSatellite, eComponentScan, \
 	eDVBSatelliteEquipmentControl, eDVBFrontendParametersTerrestrial, \
@@ -298,11 +299,12 @@ class ScanSetup(ConfigListScreen, Screen, CableTransponderSearchSupport):
 		del self.feinfo
 		del self.service
 
-		self.session.postScanService = session.nav.getCurrentlyPlayingServiceReference()
+		self.session.postScanService = session.nav.getCurrentlyPlayingServiceOrGroup()
 
 		self["actions"] = NumberActionMap(["SetupActions", "MenuActions"],
 		{
 			"ok": self.keyGo,
+			"save": self.keyGo,
 			"cancel": self.keyCancel,
 			"menu": self.doCloseRecursive,
 		}, -2)
@@ -441,36 +443,6 @@ class ScanSetup(ConfigListScreen, Screen, CableTransponderSearchSupport):
 			self.createSetup()
 
 	def createConfig(self, frontendData):
-							   #("Type", frontendData["system"], TYPE_TEXT),
-					   #("Modulation", frontendData["modulation"], TYPE_TEXT),
-					   #("Orbital position", frontendData["orbital_position"], TYPE_VALUE_DEC),
-					   #("Frequency", frontendData["frequency"], TYPE_VALUE_DEC),
-					   #("Symbolrate", frontendData["symbol_rate"], TYPE_VALUE_DEC),
-					   #("Polarization", frontendData["polarization"], TYPE_TEXT),
-					   #("Inversion", frontendData["inversion"], TYPE_TEXT),
-					   #("FEC inner", frontendData["fec_inner"], TYPE_TEXT),
-				   		#)
-		#elif frontendData["tuner_type"] == "DVB-C":
-			#return ( ("NIM", ['A', 'B', 'C', 'D'][frontendData["tuner_number"]], TYPE_TEXT),
-					   #("Type", frontendData["tuner_type"], TYPE_TEXT),
-					   #("Frequency", frontendData["frequency"], TYPE_VALUE_DEC),
-					   #("Symbolrate", frontendData["symbol_rate"], TYPE_VALUE_DEC),
-					   #("Modulation", frontendData["modulation"], TYPE_TEXT),
-					   #("Inversion", frontendData["inversion"], TYPE_TEXT),
-			#		   ("FEC inner", frontendData["fec_inner"], TYPE_TEXT),
-				   		#)
-		#elif frontendData["tuner_type"] == "DVB-T":
-			#return ( ("NIM", ['A', 'B', 'C', 'D'][frontendData["tuner_number"]], TYPE_TEXT),
-					   #("Type", frontendData["tuner_type"], TYPE_TEXT),
-					   #("Frequency", frontendData["frequency"], TYPE_VALUE_DEC),
-					   #("Inversion", frontendData["inversion"], TYPE_TEXT),
-					   #("Bandwidth", frontendData["bandwidth"], TYPE_VALUE_DEC),
-					   #("CodeRateLP", frontendData["code_rate_lp"], TYPE_TEXT),
-					   #("CodeRateHP", frontendData["code_rate_hp"], TYPE_TEXT),
-					   #("Constellation", frontendData["constellation"], TYPE_TEXT),
-					   #("Transmission Mode", frontendData["transmission_mode"], TYPE_TEXT),
-					   #("Guard Interval", frontendData["guard_interval"], TYPE_TEXT),
-					   #("Hierarchy Inform.", frontendData["hierarchy_information"], TYPE_TEXT),
 			defaultSat = {
 				"orbpos": 192,
 				"system": eDVBFrontendParametersSatellite.System_DVB_S,
@@ -762,7 +734,10 @@ class ScanSetup(ConfigListScreen, Screen, CableTransponderSearchSupport):
 	def addTerTransponder(self, tlist, *args, **kwargs):
 		tlist.append(buildTerTransponder(*args, **kwargs))
 
-	def keyGo(self):
+	def keyGo(self, answer = True):
+		InfoBarInstance = InfoBar.instance
+		if not answer or (InfoBarInstance and InfoBarInstance.checkTimeshiftRunning(self.keyGo)):
+			return
 		if self.scan_nims.value == "":
 			return
 		tlist = []
@@ -922,11 +897,12 @@ class ScanSimple(ConfigListScreen, Screen, CableTransponderSearchSupport):
 		self["actions"] = ActionMap(["SetupActions", "MenuActions"],
 		{
 			"ok": self.keyGo,
+			"save": self.keyGo,
 			"cancel": self.keyCancel,
 			"menu": self.doCloseRecursive,
 		}, -2)
 
-		self.session.postScanService = session.nav.getCurrentlyPlayingServiceReference()
+		self.session.postScanService = session.nav.getCurrentlyPlayingServiceOrGroup()
 
 		self.list = []
 		tlist = []
@@ -980,7 +956,10 @@ class ScanSimple(ConfigListScreen, Screen, CableTransponderSearchSupport):
 		self.finished_cb = finished_cb
 		self.keyGo()
 
-	def keyGo(self):
+	def keyGo(self, answer = True):
+		InfoBarInstance = InfoBar.instance
+		if not answer or (InfoBarInstance and InfoBarInstance.checkTimeshiftRunning(self.keyGo)):
+			return
 		self.scanList = []
 		self.known_networks = set()
 		self.nim_iter=0

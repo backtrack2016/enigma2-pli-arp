@@ -6,7 +6,7 @@ from Components.SystemInfo import SystemInfo
 from GlobalActions import globalActionMap
 from enigma import eDVBVolumecontrol
 from subprocess import call
-import os
+
 inStandby = None
 
 class Standby(Screen):
@@ -27,7 +27,7 @@ class Standby(Screen):
 		if (eDVBVolumecontrol.getInstance().isMuted()):
 			self.wasMuted = 1
 			print "mute already active"
-		else:	
+		else:
 			self.wasMuted = 0
 			eDVBVolumecontrol.getInstance().volumeToggleMute()
 
@@ -57,7 +57,7 @@ class Standby(Screen):
 		if self.session.current_dialog:
 			if self.session.current_dialog.ALLOW_SUSPEND == Screen.SUSPEND_STOPS:
 				#get currently playing service reference
-				self.prev_running_service = self.session.nav.getCurrentlyPlayingServiceReference()
+				self.prev_running_service = self.session.nav.getCurrentlyPlayingServiceOrGroup()
 				#stop actual played dvb-service
 				self.session.nav.stopService()
 			elif self.session.current_dialog.ALLOW_SUSPEND == Screen.SUSPEND_PAUSES:
@@ -125,7 +125,7 @@ class QuitMainloopScreen(Screen):
 			3: _("The user interface of your receiver is restarting"),
 			4: _("Your frontprocessor will be upgraded\nPlease wait until your receiver reboots\nThis may take a few minutes"),
 			5: _("The user interface of your receiver is restarting\ndue to an error in mytest.py"),
-			42: _("Unattended upgrade in progress\nPlease wait until your receiver reboots\nThis may take a few minutes") }.get(retvalue) 
+			42: _("Unattended upgrade in progress\nPlease wait until your receiver reboots\nThis may take a few minutes") }.get(retvalue)
 		self["text"] = Label(text)
 
 inTryQuitMainloop = False
@@ -139,7 +139,7 @@ class TryQuitMainloop(MessageBox):
 		reason = ""
 		next_rec_time = -1
 		if not recordings:
-			next_rec_time = session.nav.RecordTimer.getNextRecordingTime()	
+			next_rec_time = session.nav.RecordTimer.getNextRecordingTime()
 		if recordings or (next_rec_time > 0 and (next_rec_time - time()) < 360):
 			reason = _("Recording(s) are in progress or coming up in few seconds!") + '\n'
 		if jobs:
@@ -147,16 +147,16 @@ class TryQuitMainloop(MessageBox):
 				job = job_manager.getPendingJobs()[0]
 				reason += "%s: %s (%d%%)\n" % (job.getStatustext(), job.name, int(100*job.progress/float(job.end)))
 			else:
-				reason += (_("%d jobs are running in the background!") % jobs) + '\n'
+				reason += (ngettext("%d job is running in the background!", "%d jobs are running in the background!", jobs) % jobs) + '\n'
 		if reason:
-			text = { 1: _("Really shutdown now?"), 
+			text = { 1: _("Really shutdown now?"),
 				2: _("Really reboot now?"),
 				3: _("Really restart now?"),
 				4: _("Really upgrade the frontprocessor and reboot now?"),
 				42: _("Really upgrade your settop box and reboot now?") }.get(retvalue)
 			if text:
 				MessageBox.__init__(self, session, reason+text, type = MessageBox.TYPE_YESNO, timeout = timeout, default = default_yes)
-				self.skinName = "MessageBox"
+				self.skinName = "MessageBoxSimple"
 				session.nav.record_event.append(self.getRecordEvent)
 				self.connected = True
 				self.onShow.append(self.__onShow)

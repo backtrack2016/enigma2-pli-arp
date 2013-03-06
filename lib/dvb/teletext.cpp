@@ -43,7 +43,7 @@ unsigned char NationalReplaceMap[128] =
 // see table 36 in ETSI EN 300 706
 
 unsigned int NationalOptionSubsets[13*14] = {
-	0, 0x0023, 0xc5af, 0xc48d, 0xc5a3, 0xc5be, 0xc3bd, 0xc3ad, 0xc599, 0xc3a9, 0xc3a1, 0xc49b, 0xc3ba, 0xc5a1, // Slovak/Czech
+	0, 0x0023, 0xc5af, 0xc48d, 0xc5a5, 0xc5be, 0xc3bd, 0xc3ad, 0xc599, 0xc3a9, 0xc3a1, 0xc49b, 0xc3ba, 0xc5a1, // Slovak/Czech
 	0, 0xc2a3, 0x0024, 0x0040, 0xe28690, 0xc2bd, 0xe28692, 0xe28691, 0x0023, 0x002d, 0xc2bc, 0xc781, 0xc2be, 0xc3b7, // English
 	0, 0x0023, 0xc3b5, 0xc5A0, 0xc384, 0xc396, 0xc5bd, 0xc39c, 0xc395, 0xc5a1, 0xc3a4, 0xc3b6, 0xc5be, 0xc3bc, // Estonian
 	0, 0xc3a9, 0xc3af, 0xc3a0, 0xc3ab, 0xc3aa, 0xc3b9, 0xc3ae, 0x0023, 0xc3a8, 0xc3a2, 0xc3b4, 0xc3bb, 0xc3a7, // French
@@ -286,7 +286,6 @@ void eDVBTeletextParser::processPESPacket(__u8 *pkt, int len)
 				/* page on the same magazine? end current page. */
 			if ((serial_mode || M == m_page_M) && m_page_open)
 			{
-				eDebug("Page End %d %lld", !have_pts, pts);
 				handlePageEnd(!have_pts, pts);
 				m_page_open = 0;
 			}
@@ -308,7 +307,6 @@ void eDVBTeletextParser::processPESPacket(__u8 *pkt, int len)
 				/* correct page on correct magazine? open page. */
 			if (M == m_page_M && X == m_page_X)
 			{
-				eDebug("Page Start %d %lld", !have_pts, pts);
 				m_C = C;
 				m_Y = Y;
 				handlePageStart();
