@@ -386,7 +386,7 @@ class PowerKey:
 					if id and id == "shutdown":
 						self.session.infobar = self
 						menu_screen = self.session.openWithCallback(self.MenuClosed, MainMenu, x)
-						menu_screen.setTitle(_("Standby / Restart"))
+						menu_screen.setTitle(_("Standby / restart"))
 						return
 		elif action == "standby":
 			self.standby()
@@ -547,6 +547,7 @@ skin.loadSkinData(enigma.getDesktop(0))
 profile("InputDevice")
 import Components.InputDevice
 Components.InputDevice.InitInputDevices()
+import Components.InputHotplug
 
 profile("SetupDevices")
 import Components.SetupDevices

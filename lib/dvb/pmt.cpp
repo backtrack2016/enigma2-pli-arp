@@ -49,9 +49,9 @@ void eDVBServicePMTHandler::channelStateChanged(iDVBChannel *channel)
 	channel->getState(state);
 
 	if ((m_last_channel_state != iDVBChannel::state_ok)
-		&& (state == iDVBChannel::state_ok) && (!m_demux))
+		&& (state == iDVBChannel::state_ok))
 	{
-		if (m_channel)
+		if (!m_demux && m_channel)
 		{
 			if (m_pvr_demux_tmp)
 			{
@@ -1112,12 +1112,11 @@ int eDVBServicePMTHandler::tuneExt(eServiceReferenceDVB &ref, int use_decode_dem
 				tstools.setSource(source, NULL);
 			if (b)
 			{
-				int service_id, pmt_pid;
-				if (!tstools.findPMT(pmt_pid, service_id))
+				int service_id;
+				if (!tstools.findPMT(&m_pmt_pid, &service_id, NULL))
 				{
-					eDebug("PMT pid found on pid %04x, service id %d", pmt_pid, service_id);
+					eDebug("PMT pid found on pid %04x, service id %d", m_pmt_pid, service_id);
 					m_reference.setServiceID(service_id);
-					m_pmt_pid = pmt_pid;
 				}
 			}
 			else

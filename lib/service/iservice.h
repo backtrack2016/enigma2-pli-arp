@@ -41,7 +41,8 @@ public:
 		sort1=32,					// sort key is 1 instead of 0
 		isMarker=64,			// Marker
 		isGroup=128,			// is a group of services
-		isNumberedMarker=256 //use together with isMarker, to force the marker to be numbered
+		isNumberedMarker=256, //use together with isMarker, to force the marker to be numbered
+		isInvisible=512 // use to make services or markers in a list invisable
 	};
 	int flags; // flags will NOT be compared.
 
@@ -615,8 +616,11 @@ public:
 	virtual RESULT setNextPlaybackFile(const char *fn)=0; // not needed by our internal timeshift.. but external plugin...
 
 	virtual int isTimeshiftActive()=0;
+	virtual int isTimeshiftEnabled()=0;
 			/* this essentially seeks to the relative end of the timeshift buffer */
 	virtual RESULT activateTimeshift()=0;
+	virtual RESULT saveTimeshiftFile()=0;
+	virtual std::string getTimeshiftFilename()=0;
 };
 SWIG_TEMPLATE_TYPEDEF(ePtr<iTimeshiftService>, iTimeshiftServicePtr);
 
