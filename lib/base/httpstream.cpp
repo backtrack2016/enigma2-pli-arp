@@ -31,7 +31,7 @@ int eHttpStream::open(const std::string& url)
 {
 	m_url = url;
 	//this will just initiate socket connection
-	return openStream(m_url);
+	return 0;
 }
 
 int eHttpStream::openStream(const std::string& url)
@@ -76,9 +76,7 @@ int eHttpStream::openUrl(const std::string &url, std::string &newurl)
 	int statuscode = 0;
 	char statusmsg[100];
 
-	if (m_connectStatus != ConnectInProgress) {
-		close();
-	}
+	close();
 
 	int pathindex = uri.find("/", 7);
 	if (pathindex > 0)
@@ -128,19 +126,9 @@ int eHttpStream::openUrl(const std::string &url, std::string &newurl)
 		port = 80;
 	}
 
-	if (m_streamSocket == -1) {
-		m_streamSocket = eSocketBase::connect(hostname.c_str(), port, 0);
-		if (m_streamSocket < 0) return -1;
-		//if (errno == EINTR || errno == EINPROGRESS) {
-		//	m_connectStatus = ConnectInProgress;
-		//	return 0;
-		//}
-		m_connectStatus = ConnectInProgress;
-		return 0;
-	} else {
-		m_streamSocket = eSocketBase::finishConnect(m_streamSocket, 10);
-		if (m_streamSocket < 0) return -1;
-	}
+
+	m_streamSocket = eSocketBase::connect(hostname.c_str(), port, 100);
+	if (m_streamSocket < 0) return -1;
 
 	request = "GET ";
 	request.append(uri).append(" HTTP/1.1\r\n");
@@ -280,11 +268,9 @@ ssize_t eHttpStream::read(off_t offset, void *buf, size_t count)
 {
 	if (m_streamSocket < 0) {
 		eDebug("eHttpStream::read not valid fd");
-		return -1;
-	}
-	if (m_connectStatus == ConnectInProgress) {
 		if (openStream(m_url) < 0) return -1;
 	}
+	
 
 	int read2Chunks=2;
 READAGAIN:
