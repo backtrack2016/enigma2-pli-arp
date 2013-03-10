@@ -21,7 +21,7 @@ from Screens.InfoBarGenerics import InfoBarShowHide, \
 	InfoBarSubserviceSelection, InfoBarShowMovies, InfoBarTimeshift,  \
 	InfoBarServiceNotifications, InfoBarPVRState, InfoBarCueSheetSupport, InfoBarSimpleEventView, \
 	InfoBarSummarySupport, InfoBarMoviePlayerSummarySupport, InfoBarTimeshiftState, InfoBarTeletextPlugin, InfoBarExtensions, \
-	InfoBarSubtitleSupport, InfoBarPiP, InfoBarPlugins, InfoBarServiceErrorPopupSupport, InfoBarJobman, InfoBarInactivity, \
+	InfoBarSubtitleSupport, InfoBarPiP, InfoBarPlugins, InfoBarServiceErrorPopupSupport, InfoBarJobman, InfoBarPowersaver, \
 	InfoBarAspectSelection, InfoBarSleepTimer, setResumePoint, delResumePoint
 
 profile("LOAD:InitBar_Components")
@@ -38,7 +38,7 @@ class InfoBar(InfoBarBase, InfoBarShowHide,
 	HelpableScreen, InfoBarAdditionalInfo, InfoBarNotifications, InfoBarDish, InfoBarUnhandledKey,
 	InfoBarSubserviceSelection, InfoBarTimeshift, InfoBarSeek,
 	InfoBarSummarySupport, InfoBarTimeshiftState, InfoBarTeletextPlugin, InfoBarExtensions,
-	InfoBarPiP, InfoBarPlugins, InfoBarSubtitleSupport, InfoBarServiceErrorPopupSupport, InfoBarJobman, InfoBarInactivity,
+	InfoBarPiP, InfoBarPlugins, InfoBarSubtitleSupport, InfoBarServiceErrorPopupSupport, InfoBarJobman, InfoBarPowersaver,
 	InfoBarAspectSelection, InfoBarSleepTimer, Screen):
 	
 	ALLOW_SUSPEND = True
@@ -64,7 +64,7 @@ class InfoBar(InfoBarBase, InfoBarShowHide,
 				InfoBarInstantRecord, InfoBarAudioSelection, InfoBarRedButton, InfoBarTimerButton, InfoBarUnhandledKey, \
 				InfoBarAdditionalInfo, InfoBarNotifications, InfoBarDish, InfoBarSubserviceSelection, \
 				InfoBarTimeshift, InfoBarSeek, InfoBarSummarySupport, InfoBarTimeshiftState, \
-				InfoBarTeletextPlugin, InfoBarExtensions, InfoBarPiP, InfoBarSubtitleSupport, InfoBarJobman, InfoBarInactivity, \
+				InfoBarTeletextPlugin, InfoBarExtensions, InfoBarPiP, InfoBarSubtitleSupport, InfoBarJobman, InfoBarPowersaver, \
 				InfoBarAspectSelection, InfoBarSleepTimer, InfoBarPlugins, InfoBarServiceErrorPopupSupport:
 			x.__init__(self)
 
@@ -253,14 +253,16 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, \
 		setResumePoint(self.session)
 		self.handleLeave(config.usage.on_movie_stop.value)
 
-	def leavePlayerOnExit(self, answer = None):
+	def leavePlayerOnExit(self):
+		if self.shown:
+			self.hide()
+		else:
+			self.session.openWithCallback(self.leavePlayerOnExitCallback, MessageBox, _("Exit movie player?"), simple=True)
+
+	def leavePlayerOnExitCallback(self, answer):
 		if answer == True:
 			setResumePoint(self.session)
 			self.handleLeave("quit")
-		elif self.shown:
-			self.hide()
-		elif answer is None:
-			self.session.openWithCallback(self.leavePlayerOnExit, MessageBox, _("Exit movie player?"), MessageBox.TYPE_YESNO, simple = True)
 
 	def deleteConfirmed(self, answer):
 		if answer:

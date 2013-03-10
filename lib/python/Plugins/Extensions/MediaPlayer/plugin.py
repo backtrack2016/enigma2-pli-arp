@@ -264,24 +264,31 @@ class MediaPlayer(Screen, InfoBarBase, InfoBarSeek, InfoBarAudioSelection, InfoB
 		return MediaPlayerLCDScreen
 
 	def exit(self):
-		self.playlistIOInternal.clear()
-		for x in self.playlist.list:
-			self.playlistIOInternal.addService(ServiceReference(x[0]))
-		if self.savePlaylistOnExit:
+		if self.mediaPlayerInfoBar.shown:
+			self.timerHideMediaPlayerInfoBar()
+		else:
+			self.session.openWithCallback(self.exitCallback, MessageBox, _("Exit media player?"), simple = not self.shown)
+
+	def exitCallback(self, answer):
+		if answer:
+			self.playlistIOInternal.clear()
+			for x in self.playlist.list:
+				self.playlistIOInternal.addService(ServiceReference(x[0]))
+			if self.savePlaylistOnExit:
+				try:
+					self.playlistIOInternal.save(resolveFilename(SCOPE_CONFIG, "playlist.e2pls"))
+				except IOError:
+					print "couldn't save playlist.e2pls"
+			if config.mediaplayer.saveDirOnExit.getValue():
+				config.mediaplayer.defaultDir.setValue(self.filelist.getCurrentDirectory())
+				config.mediaplayer.defaultDir.save()
 			try:
-				self.playlistIOInternal.save(resolveFilename(SCOPE_CONFIG, "playlist.e2pls"))
-			except IOError:
-				print "couldn't save playlist.e2pls"
-		if config.mediaplayer.saveDirOnExit.getValue():
-			config.mediaplayer.defaultDir.setValue(self.filelist.getCurrentDirectory())
-			config.mediaplayer.defaultDir.save()
-		try:
-			from Plugins.SystemPlugins.Hotplug.plugin import hotplugNotifier
-			hotplugNotifier.remove(self.hotplugCB)
-		except:
-			pass
-		del self["coverArt"].picload
-		self.close()
+				from Plugins.SystemPlugins.Hotplug.plugin import hotplugNotifier
+				hotplugNotifier.remove(self.hotplugCB)
+			except:
+				pass
+			del self["coverArt"].picload
+			self.close()
 
 	def checkSkipShowHideLock(self):
 		self.updatedSeekState()
@@ -997,11 +1004,12 @@ class MediaPlayerLCDScreen(Screen):
 		elif line == 4:
 			self["text4"].setText(text)
 
-def main(session, answer = True, **kwargs):
-	if not answer or InfoBar.instance.checkTimeshiftRunning(boundFunction(main, session)):
-		return
+def mainCheckTimeshiftCallback(session, answer):
 	if answer:
 		session.open(MediaPlayer)
+
+def main(session, **kwargs):
+	InfoBar.instance.checkTimeshiftRunning(boundFunction(mainCheckTimeshiftCallback, session))
 
 def menu(menuid, **kwargs):
 	if menuid == "mainmenu" and config.mediaplayer.onMainMenu.getValue():

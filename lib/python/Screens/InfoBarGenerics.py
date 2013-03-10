@@ -1412,7 +1412,6 @@ class InfoBarTimeshift:
 			}, prio=-1) # priority over record
 
 		self.timeshift_enabled = False
-		self.check_timeshift = True
 
 		self["TimeshiftActivateActions"].setEnabled(False)
 		self.ts_rewind_timer = eTimer()
@@ -1455,18 +1454,22 @@ class InfoBarTimeshift:
 			else:
 				print "timeshift failed"
 
-	def stopTimeshift(self, answer = True):
-		if not answer or self.checkTimeshiftRunning(self.stopTimeshift):
-			return
+	def stopTimeshift(self):
+		if not self.timeshift_enabled:
+			return 0
 		ts = self.getTimeshift()
 		if ts is None:
-			return
-		ts.stopTimeshift()
-		self.timeshift_enabled = False
-		self.pvrStateDialog.hide()
+			return 0
+		self.checkTimeshiftRunning(boundFunction(self.stopTimeshiftcheckTimeshiftRunningCallback, ts))
 
-		# disable actions
-		self.__seekableStatusChanged()
+	def stopTimeshiftcheckTimeshiftRunningCallback(self, ts, answer):
+		if answer:
+			ts.stopTimeshift()
+			self.timeshift_enabled = False
+			self.pvrStateDialog.hide()
+
+			# disable actions
+			self.__seekableStatusChanged()
 
 	# activates timeshift, and seeks to (almost) the end
 	def activateTimeshiftEnd(self, back = True):
@@ -1510,19 +1513,11 @@ class InfoBarTimeshift:
 		self.timeshift_enabled = False
 		self.__seekableStatusChanged()
 
-	def checkTimeshiftRunning(self, returnFunction, answer = None):
-		if answer is None:
-			if self.timeshift_enabled and self.check_timeshift and config.usage.check_timeshift.value:
-				self.session.openWithCallback(boundFunction(self.checkTimeshiftRunning, returnFunction), MessageBox, _("Stop timeshift?"), simple = True)
-				return True
-			else:
-				self.check_timeshift = True
-				return False
-		elif answer:
-			self.check_timeshift = False
-			boundFunction(returnFunction, True)()
+	def checkTimeshiftRunning(self, returnFunction):
+		if self.timeshift_enabled and config.usage.check_timeshift.value:
+			self.session.openWithCallback(returnFunction, MessageBox, _("Stop timeshift?"), simple = True)
 		else:
-			boundFunction(returnFunction, False)()
+			returnFunction(True)
 
 from Screens.PiPSetup import PiPSetup
 
@@ -2541,11 +2536,14 @@ class InfoBarServiceErrorPopupSupport:
 			else:
 				Notifications.RemovePopup(id = "ZapError")
 
-class InfoBarInactivity:
+class InfoBarPowersaver:
 	def __init__(self):
 		self.inactivityTimer = eTimer()
-		self.inactivityTimer.callback.append(self.inactiveTimeout)
+		self.inactivityTimer.callback.append(self.inactivityTimeout)
 		self.restartInactiveTimer()
+		self.sleepTimer = eTimer()
+		self.sleepTimer.callback.append(self.sleepTimerTimeout)
+		self.setSleepTimer(0)
 		eActionMap.getInstance().bindAction('', -maxint - 1, self.keypress)
 
 	def keypress(self, key, flag):
@@ -2559,26 +2557,66 @@ class InfoBarInactivity:
 		else:
 			self.inactivityTimer.stop()
 
-	def inactiveTimeout(self, answer = None):
-		self.inactivityTimer.stop()
-		if answer == None and not Screens.Standby.inStandby:
+	def inactivityTimeout(self):
+		if Screens.Standby.inStandby:
+			self.inactivityTimeoutCallback(True)
+		else:
 			if int(config.usage.inactivity_timer.value) < 0:
-				message = _("Your receiver will shutdown due to inactivity\nDo you want to abort this?")
+				message = _("Your receiver will shutdown due to inactivity.")
 			else:
-				message = _("Your receiver will got to standby due to inactivity\nDo you want to abort this?")
-			self.session.openWithCallback(self.inactiveTimeout, MessageBox, message, MessageBox.TYPE_YESNO, timeout=60, default=False, simple = True)
+				message = _("Your receiver will got to standby due to inactivity.")
+			message += "\n" + _("Do you want this?")
+			self.session.openWithCallback(self.inactivityTimeoutCallback, MessageBox, message, timeout=60, simple = True)	
+
+	def inactivityTimeoutCallback(self, answer):
+		if answer:
+			self.goShutdownOrStandby(int(config.usage.inactivity_timer.value))
+		else:
+			print "[InfoBarPowersaver] abort"
+
+	def setSleepTimer(self, time):
+		print "[InfoBarPowersaver] set sleeptimer", time
+		if time:
+			self.sleepTimer.startLongTimer(abs(time))
+		else:
+			self.sleepTimer.stop()
+		self.sleepTimerSetting = time
+
+	def sleepTimerTimeout(self):
+		if Screens.Standby.inStandby:
+			self.sleepTimerTimeoutCallback(True)
+		else:
+			list = [ (_("Yes"), True), (_("Extend sleeptimer 15 minutes"), "extend"), (_("No"), False) ]
+			if self.sleepTimerSetting < 0:
+				message = _("Your receiver will shutdown due to the sleeptimer.")
+			elif self.sleepTimerSetting > 0:
+				message = _("Your receiver will got to stand by due to the sleeptimer.")
+			message += "\n" + _("Do you want this?")
+			self.session.openWithCallback(self.sleepTimerTimeoutCallback, MessageBox, message, timeout=60, simple = True, list = list)	
+
+	def sleepTimerTimeoutCallback(self, answer):
+		if answer == "extend":
+			print "[InfoBarPowersaver] extend sleeptimer"
+			if self.sleepTimerSetting < 0:
+				self.setSleepTimer(-900)
+			else:
+				self.setSleepTimer(900)
 		elif answer:
-			print "[InfoBarInactivity] abort"
-			self.restartInactiveTimer()
-		elif int(config.usage.inactivity_timer.value) < 0:
+			self.goShutdownOrStandby(self.sleepTimerSetting)
+		else:
+			print "[InfoBarPowersaver] abort"
+			self.setSleepTimer(0)
+
+	def goShutdownOrStandby(self, value):
+		if value < 0:
 			if Screens.Standby.inStandby:
-				print "[InfoBarInactivity] already in standby now shut down"
+				print "[InfoBarPowersaver] already in standby now shut down"
 				RecordTimerEntry.TryQuitMainloop(True)
 			elif not Screens.Standby.inTryQuitMainloop:
-				print "[InfoBarInactivity] goto shutdown"
+				print "[InfoBarPowersaver] goto shutdown"
 				self.session.open(Screens.Standby.TryQuitMainloop, 1)
 		elif not Screens.Standby.inStandby:
-			print "[InfoBarInactivity] goto standby"
+			print "[InfoBarPowersaver] goto standby"
 			self.session.open(Screens.Standby.Standby)
 
 
