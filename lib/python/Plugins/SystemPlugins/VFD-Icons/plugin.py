@@ -72,7 +72,6 @@ class ConfigVFDDisplay(Screen, ConfigListScreen):
 		ConfigListScreen.keyCancel(self)
 
 	def keySave(self):
-		#global DisplayType
 		if DisplayType:
 			evfd.getInstance().vfd_set_brightness(config.plugins.vfdicon.contrast.value)
 			print "[VFD Display] set brightness", config.plugins.vfdicon.contrast.value
