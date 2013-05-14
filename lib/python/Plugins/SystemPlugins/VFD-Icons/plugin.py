@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+from translit import translify
 
 from Components.ActionMap import ActionMap
 from Components.config import config, ConfigSlider, ConfigSubsection, \
@@ -39,6 +40,7 @@ if DisplayType:
 
 class ConfigVFDDisplay(Screen, ConfigListScreen):
 	def __init__(self, session):
+		global DisplayType
 		Screen.__init__(self, session)
 		self.skinName = ["Setup"]
 		self.setTitle(_("VFD display configuration"))
@@ -51,7 +53,6 @@ class ConfigVFDDisplay(Screen, ConfigListScreen):
 				"green": self.keySave,
 				"red": self.cancel,
 			}, -2)
-		global DisplayType
 		cfglist = []
 		cfglist.append(getConfigListEntry(_("Show on VFD display"),
 			config.plugins.vfdicon.displayshow))
@@ -71,7 +72,7 @@ class ConfigVFDDisplay(Screen, ConfigListScreen):
 		ConfigListScreen.keyCancel(self)
 
 	def keySave(self):
-		global DisplayType
+		#global DisplayType
 		if DisplayType:
 			evfd.getInstance().vfd_set_brightness(config.plugins.vfdicon.contrast.value)
 			print "[VFD Display] set brightness", config.plugins.vfdicon.contrast.value
@@ -90,11 +91,11 @@ def VFDdisplay(menuid, **kwargs):
 
 class VFDIcons:
 	def __init__(self, session):
+		global DisplayType
 		self.session = session
 		self.onClose = []
 		self.timer = eTimer()
 		self.timer.callback.append(self.timerEvent)
-		global DisplayType
 		if DisplayType:
 			self.record = False
 			self.dir = None
@@ -142,6 +143,8 @@ class VFDIcons:
 							servicename = str(service.getChannelNum())
 						else:
 							servicename = ServiceReference(service).getServiceName()
+							if not DisplayType:
+								servicename = translify(servicename)
 			print "[VFD Display] text ", servicename[0:20]
 			evfd.getInstance().vfd_write_string(servicename[0:20])
 
@@ -394,8 +397,7 @@ class VFDIcons:
 VFDIconsInstance = None
 
 def main(session, **kwargs):
-	global VFDIconsInstance
-	global DisplayType
+	global VFDIconsInstance, DisplayType
 	if VFDIconsInstance is None:
 		VFDIconsInstance = VFDIcons(session)
 	if config.plugins.vfdicon.displayshow.value == "clock" or DisplayType:
