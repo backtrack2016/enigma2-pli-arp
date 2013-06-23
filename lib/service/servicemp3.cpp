@@ -31,7 +31,7 @@ typedef enum
 	GST_PLAY_FLAG_NATIVE_AUDIO  = 0x00000020,
 	GST_PLAY_FLAG_NATIVE_VIDEO  = 0x00000040,
 	GST_PLAY_FLAG_DOWNLOAD      = 0x00000080,
-	GST_PLAY_FLAG_BUFFERING     = 0x000000100
+	GST_PLAY_FLAG_BUFFERING     = 0x00000100
 } GstPlayFlags;
 
 // eServiceFactoryMP3
@@ -222,9 +222,18 @@ int eStaticServiceMP3Info::getInfo(const eServiceReference &ref, int w)
 	case iServiceInformation::sTimeCreate:
 		{
 			struct stat s;
-			if(stat(ref.path.c_str(), &s) == 0)
+			if (stat(ref.path.c_str(), &s) == 0)
 			{
 				return s.st_mtime;
+			}
+		}
+		break;
+	case iServiceInformation::sFileSize:
+		{
+			struct stat s;
+			if (stat(ref.path.c_str(), &s) == 0)
+			{
+				return s.st_size;
 			}
 		}
 		break;
@@ -232,21 +241,101 @@ int eStaticServiceMP3Info::getInfo(const eServiceReference &ref, int w)
 	return iServiceInformation::resNA;
 }
 
-PyObject* eStaticServiceMP3Info::getInfoObject(const eServiceReference &ref, int w)
+long long eStaticServiceMP3Info::getFileSize(const eServiceReference &ref)
 {
-	switch(w)
+	struct stat s;
+	if (stat(ref.path.c_str(), &s) == 0)
 	{
-	case iServiceInformation::sFileSize:
-		{
-			struct stat s;
-			if(stat(ref.path.c_str(), &s) == 0)
-			{
-				return PyLong_FromLongLong(s.st_size);
-			}
-		}
-		break;
+		return s.st_size;
 	}
-	Py_RETURN_NONE;
+	return 0;
+}
+
+DEFINE_REF(eStreamBufferInfo)
+
+eStreamBufferInfo::eStreamBufferInfo(int percentage, int inputrate, int outputrate, int space, int size)
+: bufferPercentage(percentage),
+	inputRate(inputrate),
+	outputRate(outputrate),
+	bufferSpace(space),
+	bufferSize(size)
+{
+}
+
+int eStreamBufferInfo::getBufferPercentage() const
+{
+	return bufferPercentage;
+}
+
+int eStreamBufferInfo::getAverageInputRate() const
+{
+	return inputRate;
+}
+
+int eStreamBufferInfo::getAverageOutputRate() const
+{
+	return outputRate;
+}
+
+int eStreamBufferInfo::getBufferSpace() const
+{
+	return bufferSpace;
+}
+
+int eStreamBufferInfo::getBufferSize() const
+{
+	return bufferSize;
+}
+
+DEFINE_REF(eServiceMP3InfoContainer);
+
+eServiceMP3InfoContainer::eServiceMP3InfoContainer()
+: doubleValue(0.0), bufferValue(NULL), bufferData(NULL), bufferSize(0)
+{
+}
+
+eServiceMP3InfoContainer::~eServiceMP3InfoContainer()
+{
+	if (bufferValue)
+	{
+#if GST_VERSION_MAJOR >= 1
+		gst_buffer_unmap(bufferValue, &map);
+#endif
+		gst_buffer_unref(bufferValue);
+		bufferValue = NULL;
+		bufferData = NULL;
+		bufferSize = 0;
+	}
+}
+
+double eServiceMP3InfoContainer::getDouble(unsigned int index) const
+{
+	return doubleValue;
+}
+
+unsigned char *eServiceMP3InfoContainer::getBuffer(unsigned int &size) const
+{
+	size = bufferSize;
+	return bufferData;
+}
+
+void eServiceMP3InfoContainer::setDouble(double value)
+{
+	doubleValue = value;
+}
+
+void eServiceMP3InfoContainer::setBuffer(GstBuffer *buffer)
+{
+	bufferValue = buffer;
+	gst_buffer_ref(bufferValue);
+#if GST_VERSION_MAJOR < 1
+	bufferData = GST_BUFFER_DATA(bufferValue);
+	bufferSize = GST_BUFFER_SIZE(bufferValue);
+#else
+	gst_buffer_map(bufferValue, &map, GST_MAP_READ);
+	bufferData = map.data;
+	bufferSize = map.size;
+#endif
 }
 
 // eServiceMP3
@@ -346,12 +435,11 @@ eServiceMP3::eServiceMP3(eServiceReference ref)
 		CONNECT(m_streamingsrc_timeout->timeout, eServiceMP3::sourceTimeout);
 
 		std::string config_str;
-		if( ePythonConfigQuery::getConfigValue("config.mediaplayer.useAlternateUserAgent", config_str) == 0 )
+		if (eConfigManager::getConfigBoolValue("config.mediaplayer.useAlternateUserAgent"))
 		{
-			if ( config_str == "True" )
-				ePythonConfigQuery::getConfigValue("config.mediaplayer.alternateUserAgent", m_useragent);
+			m_useragent = eConfigManager::getConfigValue("config.mediaplayer.alternateUserAgent");
 		}
-		if ( m_useragent.length() == 0 )
+		if (m_useragent.empty())
 			m_useragent = "Enigma2 Mediaplayer";
 
 		if (strstr(filename, " buffer=1"))
@@ -476,7 +564,8 @@ eServiceMP3::~eServiceMP3()
 		gst_object_unref(subsink);
 	}
 
-	delete m_subtitle_widget;
+	if (m_subtitle_widget) m_subtitle_widget->destroy();
+	m_subtitle_widget = 0;
 
 	if (m_gst_playbin)
 	{
@@ -655,7 +744,6 @@ RESULT eServiceMP3::seekTo(pts_t to)
 
 	if (m_gst_playbin)
 	{
-		m_subtitle_pages.clear();
 		m_prev_decoder_time = -1;
 		m_decoder_time_valid_state = 0;
 		ret = seekToImpl(to);
@@ -701,7 +789,6 @@ RESULT eServiceMP3::trickSeek(gdouble ratio)
 		}
 	}
 
-	m_subtitle_pages.clear();
 	m_prev_decoder_time = -1;
 	m_decoder_time_valid_state = 0;
 	return 0;
@@ -1016,8 +1103,10 @@ std::string eServiceMP3::getInfoString(int w)
 	return "";
 }
 
-PyObject *eServiceMP3::getInfoObject(int w)
+ePtr<iServiceInfoContainer> eServiceMP3::getInfoObject(int w)
 {
+	eServiceMP3InfoContainer *container = new eServiceMP3InfoContainer;
+	ePtr<iServiceInfoContainer> retval = container;
 	const gchar *tag = 0;
 	bool isBuffer = false;
 	switch (w)
@@ -1063,36 +1152,19 @@ PyObject *eServiceMP3::getInfoObject(int w)
 			const GValue *gv_buffer = gst_tag_list_get_value_index(m_stream_tags, tag, 0);
 			if ( gv_buffer )
 			{
-				PyObject *retval = NULL;
-				guint8 *data;
-				gsize size;
 				GstBuffer *buffer;
 				buffer = gst_value_get_buffer (gv_buffer);
-#if GST_VERSION_MAJOR < 1
-				data = GST_BUFFER_DATA(buffer);
-				size = GST_BUFFER_SIZE(buffer);
-#else
-				GstMapInfo map;
-				gst_buffer_map(buffer, &map, GST_MAP_READ);
-				data = map.data;
-				size = map.size;
-#endif
-				retval = PyBuffer_FromMemory(data, size);
-#if GST_VERSION_MAJOR >= 1
-				gst_buffer_unmap(buffer, &map);
-#endif
-				return retval;
+				container->setBuffer(buffer);
 			}
 		}
 		else
 		{
 			gdouble value = 0.0;
 			gst_tag_list_get_double(m_stream_tags, tag, &value);
-			return PyFloat_FromDouble(value);
+			container->setDouble(value);
 		}
 	}
-
-	Py_RETURN_NONE;
+	return retval;
 }
 
 RESULT eServiceMP3::audioChannel(ePtr<iAudioChannelSelection> &ptr)
@@ -1968,6 +2040,8 @@ void eServiceMP3::gstTextpadHasCAPS_synced(GstPad *pad)
 
 void eServiceMP3::pullSubtitle(GstBuffer *buffer)
 {
+	uint32_t start_ms, end_ms;
+
 	if (buffer && m_currentSubtitleStream >= 0 && m_currentSubtitleStream < (int)m_subtitleStreams.size())
 	{
 		gint64 buf_pos = GST_BUFFER_TIMESTAMP(buffer);
@@ -1983,36 +2057,26 @@ void eServiceMP3::pullSubtitle(GstBuffer *buffer)
 		{
 			if ( m_subtitleStreams[m_currentSubtitleStream].type < stVOB )
 			{
-				int delay = 0;
-				std::string configvalue;
-				if(ePythonConfigQuery::getConfigValue("config.subtitles.pango_subtitles_delay", configvalue)==0)
-					delay = atoi(configvalue.c_str());
-
-				int subtitle_fps = 1; // = original
-				if(ePythonConfigQuery::getConfigValue("config.subtitles.pango_subtitles_fps", configvalue)==0)
-					subtitle_fps = atoi(configvalue.c_str());
+				int delay = eConfigManager::getConfigIntValue("config.subtitles.pango_subtitles_delay");
+				int subtitle_fps = eConfigManager::getConfigIntValue("config.subtitles.pango_subtitles_fps");
 
 				double convert_fps = 1.0;
 				if (subtitle_fps > 1 && m_framerate > 0)
 					convert_fps = subtitle_fps / (double)m_framerate;
 
 				unsigned char line[len+1];
-				SubtitlePage page;
 #if GST_VERSION_MAJOR < 1
 				memcpy(line, GST_BUFFER_DATA(buffer), len);
 #else
 				gst_buffer_extract(buffer, 0, line, len);
 #endif
 				line[len] = 0;
-				eDebug("got new text subtitle @ buf_pos = %lld ns (in pts=%lld): '%s' ", buf_pos, buf_pos/11111, line);
-				gRGB rgbcol(0xD0,0xD0,0xD0);
-				page.type = SubtitlePage::Pango;
-				page.pango_page.m_elements.push_back(ePangoSubtitlePageElement(rgbcol, (const char*)line));
-				page.pango_page.m_show_pts = buf_pos / 11111L * convert_fps + delay;
-				page.pango_page.m_timeout = duration_ns / 1000000;
-				m_subtitle_pages.push_back(page);
-				if (m_subtitle_pages.size()==1)
-					pushSubtitles();
+				eDebug("got new text subtitle @ buf_pos = %lld ns (in pts=%lld), dur=%lld: '%s' ", buf_pos, buf_pos/11111, duration_ns, line);
+
+				start_ms = ((buf_pos / 1000000ULL) * convert_fps) + delay;
+				end_ms = start_ms + (duration_ns / 1000000ULL);
+				m_subtitle_pages.insert(subtitle_pages_map_pair_t(end_ms, subtitle_page_t(start_ms, end_ms, (const char *)line)));
+				m_subtitle_sync_timer->start(1, true);
 			}
 			else
 			{
@@ -2024,87 +2088,124 @@ void eServiceMP3::pullSubtitle(GstBuffer *buffer)
 
 void eServiceMP3::pushSubtitles()
 {
-	while ( !m_subtitle_pages.empty() )
+	pts_t running_pts = 0;
+	int32_t next_timer = 0, decoder_ms, start_ms, end_ms, diff_start_ms, diff_end_ms;
+	subtitle_pages_map_t::iterator current;
+
+	// wait until clock is stable
+
+	if (getPlayPosition(running_pts) < 0)
+		m_decoder_time_valid_state = 0;
+
+	if (m_decoder_time_valid_state < 4)
 	{
-		SubtitlePage &frontpage = m_subtitle_pages.front();
-		pts_t running_pts = 0;
-		gint64 diff_ms = 0;
-		gint64 show_pts = 0;
+		m_decoder_time_valid_state++;
 
-		if (getPlayPosition(running_pts) < 0)
-		{
+		if (m_prev_decoder_time == running_pts)
 			m_decoder_time_valid_state = 0;
-		}
-		if (m_decoder_time_valid_state < 4) {
-			++m_decoder_time_valid_state;
-			if (m_prev_decoder_time == running_pts)
-				m_decoder_time_valid_state = 0;
-			if (m_decoder_time_valid_state < 4) {
-				m_subtitle_sync_timer->start(50, true);
-				m_prev_decoder_time = running_pts;
-				break;
-			}
+
+		if (m_decoder_time_valid_state < 4)
+		{
+			//eDebug("*** push subtitles, waiting for clock to stabilise");
+			m_prev_decoder_time = running_pts;
+			next_timer = 50;
+			goto exit;
 		}
 
-		if (frontpage.type == SubtitlePage::Pango)
-			show_pts = frontpage.pango_page.m_show_pts;
-
-		diff_ms = ( show_pts - running_pts ) / 90;
-		eDebug("check subtitle: decoder: %lld, show_pts: %lld, diff: %lld ms", running_pts/90, show_pts/90, diff_ms);
-
-		if ( diff_ms < -100 )
-		{
-			eDebug("subtitle too late... drop");
-			m_subtitle_pages.pop_front();
-		}
-		else if ( diff_ms > 20 )
-		{
-			eDebug("start timer, %lldms", diff_ms);
-			m_subtitle_sync_timer->start(diff_ms, true);
-			break;
-		}
-		else // immediate show
-		{
-			if ( m_subtitle_widget )
-			{
-				eDebug("show!\n");
-				if ( frontpage.type == SubtitlePage::Pango)
-					m_subtitle_widget->setPage(frontpage.pango_page);
-				m_subtitle_widget->show();
-			}
-			m_subtitle_pages.pop_front();
-		}
+		//eDebug("*** push subtitles, clock stable");
 	}
+
+	decoder_ms = running_pts / 90;
+
+#if 0
+		eDebug("\n*** all subs: ");
+
+		for (current = m_subtitle_pages.begin(); current != m_subtitle_pages.end(); current++)
+		{
+			start_ms = current->second.start_ms;
+			end_ms = current->second.end_ms;
+			diff_start_ms = start_ms - decoder_ms;
+			diff_end_ms = end_ms - decoder_ms;
+
+			eDebug("    start: %d, end: %d, diff_start: %d, diff_end: %d: %s",
+					start_ms, end_ms, diff_start_ms, diff_end_ms, current->second.text.c_str());
+		}
+
+		eDebug("\n\n");
+#endif
+
+	for (current = m_subtitle_pages.lower_bound(decoder_ms); current != m_subtitle_pages.end(); current++)
+	{
+		start_ms = current->second.start_ms;
+		end_ms = current->second.end_ms;
+		diff_start_ms = start_ms - decoder_ms;
+		diff_end_ms = end_ms - decoder_ms;
+
+#if 0
+		eDebug("*** next subtitle: decoder: %d, start: %d, end: %d, duration_ms: %d, diff_start: %d, diff_end: %d : %s",
+			decoder_ms, start_ms, end_ms, end_ms - start_ms, diff_start_ms, diff_end_ms, current->second.text.c_str());
+#endif
+
+		if (diff_end_ms < 0)
+		{
+			//eDebug("*** current sub has already ended, skip: %d\n", diff_end_ms);
+			continue;
+		}
+
+		if (diff_start_ms > 20)
+		{
+			//eDebug("*** current sub in the future, start timer, %d\n", diff_start_ms);
+			next_timer = diff_start_ms;
+			goto exit;
+		}
+
+		// showtime
+
+		if (m_subtitle_widget)
+		{
+			//eDebug("*** current sub actual, show!");
+
+			ePangoSubtitlePage pango_page;
+			gRGB rgbcol(0xD0,0xD0,0xD0);
+
+			pango_page.m_elements.push_back(ePangoSubtitlePageElement(rgbcol, current->second.text.c_str()));
+			pango_page.m_show_pts = start_ms * 90;			// actually completely unused by widget!
+			pango_page.m_timeout = end_ms - decoder_ms;		// take late start into account
+
+			m_subtitle_widget->setPage(pango_page);
+		}
+
+		//eDebug("*** no next sub scheduled, check NEXT subtitle");
+	}
+
+	// no more subs in cache, fall through
+
+exit:
+	if (next_timer == 0)
+	{
+		//eDebug("*** next timer = 0, set default timer!");
+		next_timer = 1000;
+	}
+
+	m_subtitle_sync_timer->start(next_timer, true);
+
+	eDebug("\n\n");
 }
 
-RESULT eServiceMP3::enableSubtitles(eWidget *parent, ePyObject tuple)
+RESULT eServiceMP3::enableSubtitles(iSubtitleUser *user, struct SubtitleTrack &track)
 {
-	ePyObject entry;
-	int tuplesize = PyTuple_Size(tuple);
-	int pid;
-
-	if (!PyTuple_Check(tuple))
-		goto error_out;
-	if (tuplesize < 1)
-		goto error_out;
-	entry = PyTuple_GET_ITEM(tuple, 1);
-	if (!PyInt_Check(entry))
-		goto error_out;
-	pid = PyInt_AsLong(entry);
-
-	if (m_currentSubtitleStream != pid)
+	if (m_currentSubtitleStream != track.pid)
 	{
 		g_object_set (G_OBJECT (m_gst_playbin), "current-text", -1, NULL);
+		m_subtitle_sync_timer->stop();
 		m_subtitle_pages.clear();
 		m_prev_decoder_time = -1;
 		m_decoder_time_valid_state = 0;
-		m_currentSubtitleStream = pid;
+		m_currentSubtitleStream = track.pid;
 		m_cachedSubtitleStream = m_currentSubtitleStream;
 		g_object_set (G_OBJECT (m_gst_playbin), "current-text", m_currentSubtitleStream, NULL);
 
-		m_subtitle_widget = 0;
-		m_subtitle_widget = new eSubtitleWidget(parent);
-		m_subtitle_widget->resize(parent->size()); /* full size */
+		m_subtitle_widget = user;
 
 		eDebug ("eServiceMP3::switched to subtitle stream %i", m_currentSubtitleStream);
 
@@ -2118,45 +2219,44 @@ RESULT eServiceMP3::enableSubtitles(eWidget *parent, ePyObject tuple)
 	}
 
 	return 0;
-
-error_out:
-	eDebug("eServiceMP3::enableSubtitles needs a tuple as 2nd argument!\n"
-		"for gst subtitles (2, subtitle_stream_count, subtitle_type)");
-	return -1;
 }
 
-RESULT eServiceMP3::disableSubtitles(eWidget *parent)
+RESULT eServiceMP3::disableSubtitles()
 {
 	eDebug("eServiceMP3::disableSubtitles");
 	m_currentSubtitleStream = -1;
 	m_cachedSubtitleStream = m_currentSubtitleStream;
 	g_object_set (G_OBJECT (m_gst_playbin), "current-text", m_currentSubtitleStream, NULL);
+	m_subtitle_sync_timer->stop();
 	m_subtitle_pages.clear();
 	m_prev_decoder_time = -1;
 	m_decoder_time_valid_state = 0;
-	delete m_subtitle_widget;
+	if (m_subtitle_widget) m_subtitle_widget->destroy();
 	m_subtitle_widget = 0;
 	return 0;
 }
 
-PyObject *eServiceMP3::getCachedSubtitle()
+RESULT eServiceMP3::getCachedSubtitle(struct SubtitleTrack &track)
 {
+
+	bool autoturnon = eConfigManager::getConfigBoolValue("config.subtitles.pango_autoturnon", true);
+	if (!autoturnon)
+		return -1;
+
 	if (m_cachedSubtitleStream >= 0 && m_cachedSubtitleStream < (int)m_subtitleStreams.size())
 	{
-		ePyObject tuple = PyTuple_New(4);
-		PyTuple_SET_ITEM(tuple, 0, PyInt_FromLong(2));
-		PyTuple_SET_ITEM(tuple, 1, PyInt_FromLong(m_cachedSubtitleStream));
-		PyTuple_SET_ITEM(tuple, 2, PyInt_FromLong(int(m_subtitleStreams[m_cachedSubtitleStream].type)));
-		PyTuple_SET_ITEM(tuple, 3, PyInt_FromLong(0));
-		return tuple;
+		track.type = 2;
+		track.pid = m_cachedSubtitleStream;
+		track.page_number = int(m_subtitleStreams[m_cachedSubtitleStream].type);
+		track.magazine_number = 0;
+		return 0;
 	}
-	Py_RETURN_NONE;
+	return -1;
 }
 
-PyObject *eServiceMP3::getSubtitleList()
+RESULT eServiceMP3::getSubtitleList(std::vector<struct SubtitleTrack> &subtitlelist)
 {
 // 	eDebug("eServiceMP3::getSubtitleList");
-	ePyObject l = PyList_New(0);
 	int stream_idx = 0;
 
 	for (std::vector<subtitleStream>::iterator IterSubtitleStream(m_subtitleStreams.begin()); IterSubtitleStream != m_subtitleStreams.end(); ++IterSubtitleStream)
@@ -2170,21 +2270,19 @@ PyObject *eServiceMP3::getSubtitleList()
 			break;
 		default:
 		{
-			ePyObject tuple = PyTuple_New(5);
-//			eDebug("eServiceMP3::getSubtitleList idx=%i type=%i, code=%s", stream_idx, int(type), (IterSubtitleStream->language_code).c_str());
-			PyTuple_SET_ITEM(tuple, 0, PyInt_FromLong(2));
-			PyTuple_SET_ITEM(tuple, 1, PyInt_FromLong(stream_idx));
-			PyTuple_SET_ITEM(tuple, 2, PyInt_FromLong(int(type)));
-			PyTuple_SET_ITEM(tuple, 3, PyInt_FromLong(0));
-			PyTuple_SET_ITEM(tuple, 4, PyString_FromString((IterSubtitleStream->language_code).c_str()));
-			PyList_Append(l, tuple);
-			Py_DECREF(tuple);
+			struct SubtitleTrack track;
+			track.type = 2;
+			track.pid = stream_idx;
+			track.page_number = int(type);
+			track.magazine_number = 0;
+			track.language_code = IterSubtitleStream->language_code;
+			subtitlelist.push_back(track);
 		}
 		}
 		stream_idx++;
 	}
 	eDebug("eServiceMP3::getSubtitleList finished");
-	return l;
+	return 0;
 }
 
 RESULT eServiceMP3::streamed(ePtr<iStreamedService> &ptr)
@@ -2193,15 +2291,9 @@ RESULT eServiceMP3::streamed(ePtr<iStreamedService> &ptr)
 	return 0;
 }
 
-PyObject *eServiceMP3::getBufferCharge()
+ePtr<iStreamBufferInfo> eServiceMP3::getBufferCharge()
 {
-	ePyObject tuple = PyTuple_New(5);
-	PyTuple_SET_ITEM(tuple, 0, PyInt_FromLong(m_bufferInfo.bufferPercent));
-	PyTuple_SET_ITEM(tuple, 1, PyInt_FromLong(m_bufferInfo.avgInRate));
-	PyTuple_SET_ITEM(tuple, 2, PyInt_FromLong(m_bufferInfo.avgOutRate));
-	PyTuple_SET_ITEM(tuple, 3, PyInt_FromLong(m_bufferInfo.bufferingLeft));
-	PyTuple_SET_ITEM(tuple, 4, PyInt_FromLong(m_buffer_size));
-	return tuple;
+	return new eStreamBufferInfo(m_bufferInfo.bufferPercent, m_bufferInfo.avgInRate, m_bufferInfo.avgOutRate, m_bufferInfo.bufferingLeft, m_buffer_size);
 }
 
 int eServiceMP3::setBufferSize(int size)
@@ -2237,9 +2329,7 @@ void eServiceMP3::setAC3Delay(int delay)
 		 */
 		if (videoSink)
 		{
-			std::string config_delay;
-			if(ePythonConfigQuery::getConfigValue("config.av.generalAC3delay", config_delay) == 0)
-				config_delay_int += atoi(config_delay.c_str());
+			config_delay_int += eConfigManager::getConfigIntValue("config.av.generalAC3delay");
 		}
 		else
 		{
@@ -2270,9 +2360,7 @@ void eServiceMP3::setPCMDelay(int delay)
 		 */
 		if (videoSink)
 		{
-			std::string config_delay;
-			if(ePythonConfigQuery::getConfigValue("config.av.generalPCMdelay", config_delay) == 0)
-				config_delay_int += atoi(config_delay.c_str());
+			config_delay_int += eConfigManager::getConfigIntValue("config.av.generalPCMdelay");
 		}
 		else
 		{

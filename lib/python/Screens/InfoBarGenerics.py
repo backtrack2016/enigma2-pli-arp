@@ -52,7 +52,7 @@ from RecordTimer import RecordTimerEntry, RecordTimer, findSafeRecordPath
 from Menu import MainMenu, mdom
 
 def isStandardInfoBar(self):
-	return ".InfoBar'>" in `self`
+	return self.__class__.__name__ == "InfoBar"
 
 def setResumePoint(session):
 	global resumePointCache, resumePointCacheLast
@@ -695,6 +695,7 @@ class InfoBarEPG:
 		self.eventView = None
 		self.epglist = []
 		self.defaultEPGType = self.getDefaultEPGtype()
+		self.defaultGuideType = self.getDefaultGuidetype()
 		self.__event_tracker = ServiceEventTracker(screen=self, eventmap=
 			{
 				iPlayableService.evUpdatedEventInfo: self.__evEventInfoChanged,
@@ -703,7 +704,10 @@ class InfoBarEPG:
 		self["EPGActions"] = HelpableActionMap(self, "InfobarEPGActions",
 			{
 				"showEventInfo": (self.showDefaultEPG, _("Show EPG...")),
+				"showEventInfoSingleEPG": (self.showSingleEPG, _("Show single service EPG")),
+				"showEventInfoMultiEPG": (self.showMultiEPG, _("Show multi channel EPG")),
 				"showEventInfoPlugin": (self.showEventInfoPlugins, _("List EPG functions...")),
+				"showEventGuidePlugin": (self.showEventGuidePlugins, _("List EPG functions...")),
 				"showInfobarOrEpgWhenInfobarAlreadyVisible": self.showEventInfoWhenNotVisible,
 			})
 
@@ -720,6 +724,14 @@ class InfoBarEPG:
 		config.usage.defaultEPGType=ConfigSelection(default = "None", choices = pluginlist)
 		for plugin in pluginlist:
 			if plugin[0] == config.usage.defaultEPGType.value:
+				return plugin[1]
+		return None
+
+	def getDefaultGuidetype(self):
+		pluginlist = self.getEPGPluginList()
+		config.usage.defaultGuideType=ConfigSelection(default = "None", choices = pluginlist)
+		for plugin in pluginlist:
+			if plugin[0] == config.usage.defaultGuideType.value:
 				return plugin[1]
 		return None
 
@@ -855,6 +867,9 @@ class InfoBarEPG:
 			else:
 				self.session.open(EPGSelection, ref)
 
+	def runPlugin(self, plugin):
+		plugin(session = self.session, servicelist = self.servicelist)
+
 	def showEventInfoPlugins(self):
 		pluginlist = self.getEPGPluginList()
 		if pluginlist:
@@ -863,21 +878,39 @@ class InfoBarEPG:
 		else:
 			self.openSingleServiceEPG()
 
-	def runPlugin(self, plugin):
-		plugin(session = self.session, servicelist = self.servicelist)
-
 	def EventInfoPluginChosen(self, answer):
 		if answer is not None:
 			answer[1]()
 
 	def SelectDefaultInfoPlugin(self):
 		self.session.openWithCallback(self.DefaultInfoPluginChosen, ChoiceBox, title=_("Please select a default EPG type..."), list = self.getEPGPluginList(), skin_name = "EPGExtensionsList")
-		
+
 	def DefaultInfoPluginChosen(self, answer):
 		if answer is not None:
 			self.defaultEPGType = answer[1]
 			config.usage.defaultEPGType.value = answer[0]
 			config.usage.defaultEPGType.save()
+
+	def showEventGuidePlugins(self):
+		pluginlist = self.getEPGPluginList()
+		if pluginlist:
+			pluginlist.append((_("Select default EPG type..."), self.SelectDefaultGuidePlugin))
+			self.session.openWithCallback(self.EventGuidePluginChosen, ChoiceBox, title=_("Please choose an extension..."), list = pluginlist, skin_name = "EPGExtensionsList")
+		else:
+			self.openSingleServiceEPG()
+
+	def EventGuidePluginChosen(self, answer):
+		if answer is not None:
+			answer[1]()
+
+	def SelectDefaultGuidePlugin(self):
+		self.session.openWithCallback(self.DefaultGuidePluginChosen, ChoiceBox, title=_("Please select a default EPG type..."), list = self.getEPGPluginList(), skin_name = "EPGExtensionsList")
+
+	def DefaultGuidePluginChosen(self, answer):
+		if answer is not None:
+			self.defaultGuideType = answer[1]
+			config.usage.defaultGuideType.value = answer[0]
+			config.usage.defaultGuideType.save()
 
 	def openSimilarList(self, eventid, refstr):
 		self.session.open(EPGSelection, refstr, None, eventid)
@@ -905,6 +938,20 @@ class InfoBarEPG:
 			self.defaultEPGType()
 			return
 		self.openEventView()
+
+	def showSingleEPG(self):
+		if self.defaultGuideType is not None:
+			self.defaultGuideType()
+			return
+		pluginlist = self.getEPGPluginList()
+		self.openSingleServiceEPG()
+
+	def showMultiEPG(self):
+		if self.defaultGuideType is not None:
+			self.defaultGuideType()
+			return
+		pluginlist = self.getEPGPluginList()
+		self.openMultiServiceEPG()		
 
 	def openEventView(self):
 		ref = self.session.nav.getCurrentlyPlayingServiceOrGroup()
@@ -1373,7 +1420,7 @@ class InfoBarPVRState:
 		self.force_show = force_show
 
 	def _mayShow(self):
-		if self.execing and self.seekstate != self.SEEK_STATE_PLAY:
+		if self.shown and self.seekstate != self.SEEK_STATE_PLAY:
 			self.pvrStateDialog.show()
 
 	def __playStateChanged(self, state):
@@ -1393,7 +1440,7 @@ class InfoBarTimeshiftState(InfoBarPVRState):
 		self.__hideTimer.callback.append(self.__hideTimeshiftState)
 
 	def _mayShow(self):
-		if self.execing and self.timeshiftEnabled():
+		if self.shown and self.timeshiftEnabled():
 			self.pvrStateDialog.show()
 			if self.seekstate == self.SEEK_STATE_PLAY and not self.shown:
 				self.__hideTimer.start(5*1000, True)
@@ -1455,14 +1502,13 @@ class InfoBarTimeshift:
 				"timeshiftActivateEndAndPause": self.activateTimeshiftEndAndPause  # something like "pause key"
 			}, prio=-1) # priority over record
 
-		self.save_timeshift_file = False
-		self.save_timeshift_in_movie_dir = False
-		self.current_timeshift_filename = ""
-		self.new_timeshift_filename = ""
-
 		self["TimeshiftActivateActions"].setEnabled(False)
 		self.ts_rewind_timer = eTimer()
 		self.ts_rewind_timer.callback.append(self.rewindService)
+		self.ts_start_delay_timer = eTimer()
+		self.ts_start_delay_timer.callback.append(self.startTimeshiftWithoutPause)
+		self.save_timeshift_file = False
+		self.timeshift_was_activated = False
 
 		self.__event_tracker = ServiceEventTracker(screen=self, eventmap=
 			{
@@ -1479,11 +1525,12 @@ class InfoBarTimeshift:
 		ts = self.getTimeshift()
 		return ts and ts.isTimeshiftEnabled()
 
-	def startTimeshift(self):
+	def startTimeshift(self, pauseService = True):
 		print "enable timeshift"
 		ts = self.getTimeshift()
 		if ts is None:
-			self.session.open(MessageBox, _("Timeshift not possible!"), MessageBox.TYPE_ERROR, simple = True)
+			if not pauseService and not int(config.usage.timeshift_start_delay.value):
+				self.session.open(MessageBox, _("Timeshift not possible!"), MessageBox.TYPE_ERROR, simple = True)
 			print "no ts interface"
 			return 0
 
@@ -1494,32 +1541,40 @@ class InfoBarTimeshift:
 				# we remove the "relative time" for now.
 				#self.pvrStateDialog["timeshift"].setRelative(time.time())
 
-				# PAUSE.
-				#self.setSeekState(self.SEEK_STATE_PAUSE)
-				self.activateTimeshiftEnd(False)
+				if pauseService:
+					# PAUSE.
+					#self.setSeekState(self.SEEK_STATE_PAUSE)
+					self.activateTimeshiftEnd(False)
 
 				# enable the "TimeshiftEnableActions", which will override
 				# the startTimeshift actions
 				self.__seekableStatusChanged()
 
 				# get current timeshift filename and calculate new
+				self.save_timeshift_file = False
+				self.save_timeshift_in_movie_dir = False
 				self.current_timeshift_filename = ts.getTimeshiftFilename()
 				self.new_timeshift_filename = self.generateNewTimeshiftFileName()
 			else:
 				print "timeshift failed"
 
+	def startTimeshiftWithoutPause(self):
+		self.startTimeshift(False)
+
 	def stopTimeshift(self):
 		ts = self.getTimeshift()
 		if ts and ts.isTimeshiftEnabled():
-			self.checkTimeshiftRunning(boundFunction(self.stopTimeshiftcheckTimeshiftRunningCallback, ts))
+			if int(config.usage.timeshift_start_delay.value):
+				ts.switchToLive()
+			else:
+				self.checkTimeshiftRunning(self.stopTimeshiftcheckTimeshiftRunningCallback)
 		else:
 			return 0
 
-	def stopTimeshiftcheckTimeshiftRunningCallback(self, ts, answer):
-		if answer:
-			self.saveTimeshiftFiles()
+	def stopTimeshiftcheckTimeshiftRunningCallback(self, answer):
+		ts = self.getTimeshift()
+		if answer and ts:
 			ts.stopTimeshift()
-			self.save_timeshift_file = False
 			self.pvrStateDialog.hide()
 
 			# disable actions
@@ -1543,6 +1598,7 @@ class InfoBarTimeshift:
 			seekable = self.getSeek()
 			if seekable is not None:
 				seekable.seekTo(-90000) # seek approx. 1 sec before end
+			self.timeshift_was_activated = True
 		if back:
 			self.ts_rewind_timer.start(200, 1)
 
@@ -1592,25 +1648,46 @@ class InfoBarTimeshift:
 
 	def __serviceStarted(self):
 		self.pvrStateDialog.hide()
-		self.save_timeshift_file = False
-		self.save_timeshift_in_movie_dir = False
-		self.current_timeshift_filename = ""
-		self.new_timeshift_filename = ""
 		self.__seekableStatusChanged()
+		if self.ts_start_delay_timer.isActive():
+			self.ts_start_delay_timer.stop()
+		if int(config.usage.timeshift_start_delay.value):
+			self.ts_start_delay_timer.start(int(config.usage.timeshift_start_delay.value) * 1000, True)
 
 	def checkTimeshiftRunning(self, returnFunction):
-		if self.timeshiftEnabled() and config.usage.check_timeshift.value:
-			self.session.openWithCallback(returnFunction, MessageBox, _("Stop timeshift?"), simple = True)
+		if self.timeshiftEnabled() and config.usage.check_timeshift.value and self.timeshift_was_activated:
+			message = _("Stop timeshift?")
+			if not self.save_timeshift_file:
+				choice = [(_("yes"), "stop"), (_("no"), "continue"), (_("Yes and save"), "save"), (_("Yes and save in movie dir"), "save_movie")]
+			else:
+				choice = [(_("yes"), "stop"), (_("no"), "continue")]
+				message += "\n" + _("Reminder, you have chosen to save timeshift file.")
+			self.session.openWithCallback(boundFunction(self.checkTimeshiftRunningCallback, returnFunction), MessageBox, message, simple = True, list = choice)
 		else:
 			returnFunction(True)
+
+	def checkTimeshiftRunningCallback(self, returnFunction, answer):
+		if answer:
+			if "movie" in answer:
+				self.save_timeshift_in_movie_dir = True
+			if "save" in answer:
+				self.save_timeshift_file = True
+				ts = self.getTimeshift()
+				if ts:
+					ts.saveTimeshiftFile()
+					del ts
+			if "continue" not in answer:
+				self.saveTimeshiftFiles()
+		returnFunction(answer and answer != "continue")
 
 	# renames/moves timeshift files if requested
 	def __serviceEnd(self):
 		self.saveTimeshiftFiles()
+		self.timeshift_was_activated = False
 
 	def saveTimeshiftFiles(self):
-		if self.timeshiftEnabled() and self.save_timeshift_file and self.current_timeshift_filename != "" and self.new_timeshift_filename != "":
-			if config.usage.timeshift_path.value is not None and not self.save_timeshift_in_movie_dir:
+		if self.save_timeshift_file and self.current_timeshift_filename and self.new_timeshift_filename:
+			if config.usage.timeshift_path.value and not self.save_timeshift_in_movie_dir:
 				dirname = config.usage.timeshift_path.value
 			else:
 				dirname = defaultMoviePath()
@@ -1624,7 +1701,7 @@ class InfoBarTimeshift:
 				fileList.append((self.current_timeshift_filename + ".cuts", filename + ".cuts"))
 
 			moveFiles(fileList)
-
+			self.save_timeshift_file = False
 
 from Screens.PiPSetup import PiPSetup
 
@@ -1849,7 +1926,13 @@ class InfoBarInstantRecord:
 			{
 				"instantRecord": (self.instantRecord, _("Instant recording...")),
 			})
-		self.recording = []
+		if isStandardInfoBar(self):
+			self.recording = []
+		else:
+			from Screens.InfoBar import InfoBar
+			InfoBarInstance = InfoBar.instance
+			if InfoBarInstance:
+				self.recording = InfoBarInstance.recording
 
 	def stopCurrentRecording(self, entry = -1):
 		if entry is not None and entry != -1:
@@ -1913,6 +1996,7 @@ class InfoBarInstantRecord:
 		simulTimerList = self.session.nav.RecordTimer.record(recording)
 
 		if simulTimerList is None:	# no conflict
+			recording.autoincrease = False
 			self.recording.append(recording)
 		else:
 			if len(simulTimerList) > 1: # with other recording
@@ -1961,6 +2045,9 @@ class InfoBarInstantRecord:
 				self.setEndtime(0)
 			else:
 				self.session.openWithCallback(self.setEndtime, TimerSelection, list)
+		elif answer[1] == "timer":
+			import TimerEdit
+			self.session.open(TimerEdit.TimerEditList)
 		elif answer[1] == "stop":
 			self.session.openWithCallback(self.stopCurrentRecording, TimerSelection, list)
 		elif answer[1] in ( "indefinitely" , "manualduration", "manualendtime", "event"):
@@ -1969,12 +2056,12 @@ class InfoBarInstantRecord:
 				self.changeDuration(len(self.recording)-1)
 			elif answer[1] == "manualendtime":
 				self.setEndtime(len(self.recording)-1)
-		elif answer[1] in ("timeshift", "timeshift_movie"):
+		elif "timeshift" in answer[1]:
 			ts = self.getTimeshift()
-			if ts is not None:
+			if ts:
 				ts.saveTimeshiftFile()
 				self.save_timeshift_file = True
-				if answer[1] == "timeshift_movie":
+				if "movie" in answer[1]:
 					self.save_timeshift_in_movie_dir = True
 		print "after:\n", self.recording
 
@@ -2008,6 +2095,17 @@ class InfoBarInstantRecord:
 			entry.end = int(time()) + 60 * int(value)
 			self.session.nav.RecordTimer.timeChanged(entry)
 
+	def isTimerRecordRunning(self):
+		identical = timers = 0
+		for timer in self.session.nav.RecordTimer.timer_list:
+			if timer.isRunning() and not timer.justplay:
+				timers += 1
+				if self.recording:
+					for x in self.recording:
+						if x.isRunning() and x == timer:
+							identical += 1
+		return timers > identical
+
 	def instantRecord(self):
 		pirr = preferredInstantRecordPath()
 		if not findSafeRecordPath(pirr) and not findSafeRecordPath(defaultMoviePath()):
@@ -2017,23 +2115,35 @@ class InfoBarInstantRecord:
 						 "\n" + _("No HDD found or HDD not initialized!"), MessageBox.TYPE_ERROR)
 			return
 
-		common =((_("Add recording (stop after current event)"), "event"),
-		(_("Add recording (indefinitely)"), "indefinitely"),
-		(_("Add recording (enter recording duration)"), "manualduration"),
-		(_("Add recording (enter recording endtime)"), "manualendtime"),)
+		if isStandardInfoBar(self):
+			common = ((_("Add recording (stop after current event)"), "event"),
+				(_("Add recording (indefinitely)"), "indefinitely"),
+				(_("Add recording (enter recording duration)"), "manualduration"),
+				(_("Add recording (enter recording endtime)"), "manualendtime"),)
+		else:
+			common = ()
 		if self.isInstantRecordRunning():
 			title =_("A recording is currently running.\nWhat do you want to do?")
 			list = ((_("Stop recording"), "stop"),) + common + \
-			((_("Change recording (duration)"), "changeduration"),
-			(_("Change recording (endtime)"), "changeendtime"),
-			(_("Do nothing"), "no"),)
+				((_("Change recording (duration)"), "changeduration"),
+				(_("Change recording (endtime)"), "changeendtime"),)
+			if self.isTimerRecordRunning():
+				list += ((_("Stop timer recording"), "timer"),)
+			list += ((_("Do nothing"), "no"),)
 		else:
 			title=_("Start recording?")
-			list = common + ((_("Do not record"), "no"),)
-		if self.timeshiftEnabled():
+			list = common
+			if self.isTimerRecordRunning():
+				list += ((_("Stop timer recording"), "timer"),)
+			if isStandardInfoBar(self):
+				list += ((_("Do not record"), "no"),)
+		if isStandardInfoBar(self) and self.timeshiftEnabled():
 			list = list + ((_("Save timeshift file"), "timeshift"),
-			(_("Save timeshift file in movie directory"), "timeshift_movie"))
-		self.session.openWithCallback(self.recordQuestionCallback, ChoiceBox,title=title,list=list)
+				(_("Save timeshift file in movie directory"), "timeshift_movie"))
+		if list:
+			self.session.openWithCallback(self.recordQuestionCallback, ChoiceBox, title=title, list=list)
+		else:
+			return 0
 
 from Tools.ISO639 import LanguageCodes
 
@@ -2291,8 +2401,17 @@ class InfoBarNotifications:
 				n[3]["onSessionOpenCallback"]()
 				del n[3]["onSessionOpenCallback"]
 
-			if cb is not None:
+			if cb:
 				dlg = self.session.openWithCallback(cb, n[1], *n[2], **n[3])
+			elif not Notifications.current_notifications and n[4] == "ZapError":
+				if n[3].has_key("timeout"):
+					del n[3]["timeout"]
+				n[3]["enable_input"] = False
+				dlg = self.session.instantiateDialog(n[1], *n[2], **n[3])
+				self.hide()
+				dlg.show()
+				self.notificationDialog = dlg
+				eActionMap.getInstance().bindAction('', -maxint - 1, self.keypressNotification)
 			else:
 				dlg = self.session.open(n[1], *n[2], **n[3])
 
@@ -2300,6 +2419,16 @@ class InfoBarNotifications:
 			d = (n[4], dlg)
 			Notifications.current_notifications.append(d)
 			dlg.onClose.append(boundFunction(self.__notificationClosed, d))
+
+	def closeNotificationInstantiateDialog(self):
+		if hasattr(self, "notificationDialog"):
+			self.session.deleteDialog(self.notificationDialog)
+			del self.notificationDialog
+			eActionMap.getInstance().unbindAction('', self.keypressNotification)
+
+	def keypressNotification(self, key, flag):
+		if flag == 1:
+			self.closeNotificationInstantiateDialog()
 
 	def __notificationClosed(self, d):
 		Notifications.current_notifications.remove(d)
@@ -2612,7 +2741,8 @@ class InfoBarSubtitleSupport(object):
 
 		self.__event_tracker = ServiceEventTracker(screen=self, eventmap=
 			{
-				iPlayableService.evEnd: self.__serviceStopped,
+				iPlayableService.evStart: self.__serviceChanged,
+				iPlayableService.evEnd: self.__serviceChanged,
 				iPlayableService.evUpdatedInfo: self.__updatedInfo
 			})
 
@@ -2627,15 +2757,17 @@ class InfoBarSubtitleSupport(object):
 			from Screens.AudioSelection import SubtitleSelection
 			self.session.open(SubtitleSelection, self)
 
-	def __serviceStopped(self):
-		self.selected_subtitle = None
-		self.subtitle_window.hide()
+	def __serviceChanged(self):
+		if self.selected_subtitle:
+			self.selected_subtitle = None
+			self.subtitle_window.hide()
 
 	def __updatedInfo(self):
-		subtitle = self.getCurrentServiceSubtitle()
-		cachedsubtitle = subtitle.getCachedSubtitle()
-		if cachedsubtitle:
-			self.enableSubtitle(cachedsubtitle)
+		if not self.selected_subtitle:
+			subtitle = self.getCurrentServiceSubtitle()
+			cachedsubtitle = subtitle.getCachedSubtitle()
+			if cachedsubtitle:
+				self.enableSubtitle(cachedsubtitle)
 
 	def enableSubtitle(self, selectedSubtitle):
 		subtitle = self.getCurrentServiceSubtitle()
@@ -2657,11 +2789,13 @@ class InfoBarServiceErrorPopupSupport:
 		self.__event_tracker = ServiceEventTracker(screen=self, eventmap=
 			{
 				iPlayableService.evTuneFailed: self.__tuneFailed,
+				iPlayableService.evTunedIn: self.__serviceStarted,
 				iPlayableService.evStart: self.__serviceStarted
 			})
 		self.__serviceStarted()
 
 	def __serviceStarted(self):
+		self.closeNotificationInstantiateDialog()
 		self.last_error = None
 		Notifications.RemovePopup(id = "ZapError")
 
@@ -2689,10 +2823,9 @@ class InfoBarServiceErrorPopupSupport:
 				eDVBServicePMTHandler.eventMisconfiguration: _("Service unavailable!\nCheck tuner configuration!"),
 			}.get(error) #this returns None when the key not exist in the dict
 
-			if error is not None:
+			if error:
+				self.closeNotificationInstantiateDialog()
 				Notifications.AddPopup(text = error, type = MessageBox.TYPE_ERROR, timeout = 5, id = "ZapError")
-			else:
-				Notifications.RemovePopup(id = "ZapError")
 
 class InfoBarPowersaver:
 	def __init__(self):

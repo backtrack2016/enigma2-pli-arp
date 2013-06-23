@@ -75,13 +75,10 @@ protected:
 public:
 		// iFrontendInformation
 	int getFrontendInfo(int w);
-	PyObject *getFrontendData();
-	PyObject *getFrontendStatus();
-	PyObject *getTransponderData(bool);
-	PyObject *getAll(bool original); // a sum of getFrontendData/Status/TransponderData
+	ePtr<iDVBFrontendData> getFrontendData();
+	ePtr<iDVBFrontendStatus> getFrontendStatus();
+	ePtr<iDVBTransponderData> getTransponderData(bool);
 };
-
-class eSubtitleWidget;
 
 class eDVBServicePlay: public eDVBServiceBase,
 		public iPlayableService, public iPauseableService, 
@@ -135,7 +132,8 @@ public:
 	RESULT getEvent(ePtr<eServiceEvent> &evt, int nownext);
 	int getInfo(int w);
 	std::string getInfoString(int w);
-	PyObject *getInfoObject(int w);
+	ePtr<iDVBTransponderData> getTransponderData();
+	void getCaIds(std::vector<int> &caids, std::vector<int> &ecmpids);
 
 		// iAudioTrackSelection	
 	int getNumberOfTracks();
@@ -166,6 +164,7 @@ public:
 	RESULT setNextPlaybackFile(const char *fn);
 	RESULT saveTimeshiftFile();
 	std::string getTimeshiftFilename();
+	void switchToLive();
 
 		// iCueSheet
 	PyObject *getCutList();
@@ -173,10 +172,10 @@ public:
 	void setCutListEnable(int enable);
 	
 		// iSubtitleOutput
-	RESULT enableSubtitles(eWidget *parent, SWIG_PYOBJECT(ePyObject) entry);
-	RESULT disableSubtitles(eWidget *parent);
-	PyObject *getSubtitleList();
-	PyObject *getCachedSubtitle();
+	RESULT enableSubtitles(iSubtitleUser *user, SubtitleTrack &track);
+	RESULT disableSubtitles();
+	RESULT getSubtitleList(std::vector<SubtitleTrack> &sublist);
+	RESULT getCachedSubtitle(SubtitleTrack &track);
 
 		// iAudioDelay
 	int getAC3Delay();
@@ -186,7 +185,7 @@ public:
 	
 		// iStreamableService
 	RESULT stream(ePtr<iStreamableService> &ptr);
-	PyObject *getStreamingData();
+	ePtr<iStreamData> getStreamingData();
 
 protected:
 	friend class eServiceFactoryDVB;
@@ -232,7 +231,6 @@ protected:
 	std::set<int> m_pids_active;
 
 	void updateTimeshiftPids();
-	void switchToLive();
 
 	void resetTimeshift(int start);
 	void switchToTimeshift();
@@ -270,7 +268,7 @@ protected:
 	
 	void cutlistToCuesheet();
 	
-	eSubtitleWidget *m_subtitle_widget;
+	iSubtitleUser *m_subtitle_widget;
 	
 		/* teletext subtitles */
 	ePtr<eDVBTeletextParser> m_teletext_parser;

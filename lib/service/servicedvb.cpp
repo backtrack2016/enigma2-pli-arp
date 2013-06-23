@@ -39,7 +39,7 @@ public:
 	RESULT getName(const eServiceReference &ref, std::string &name);
 	int getLength(const eServiceReference &ref);
 	int isPlayable(const eServiceReference &ref, const eServiceReference &ignore, bool simulate=false);
-	PyObject *getInfoObject(const eServiceReference &ref, int);
+	ePtr<iDVBTransponderData> getTransponderData(const eServiceReference &ref);
 };
 
 DEFINE_REF(eStaticServiceDVBInformation);
@@ -98,61 +98,66 @@ int eStaticServiceDVBInformation::isPlayable(const eServiceReference &ref, const
 	return 0;
 }
 
-PyObject *eStaticServiceDVBInformation::getInfoObject(const eServiceReference &r, int what)
+ePtr<iDVBTransponderData> eStaticServiceDVBInformation::getTransponderData(const eServiceReference &r)
 {
+	ePtr<iDVBTransponderData> retval;
 	if (r.type == eServiceReference::idDVB)
 	{
 		const eServiceReferenceDVB &ref = (const eServiceReferenceDVB&)r;
-		switch(what)
+		ePtr<eDVBResourceManager> res;
+		if (!eDVBResourceManager::getInstance(res))
 		{
-			case iServiceInformation::sTransponderData:
+			ePtr<iDVBChannelList> db;
+			if (!res->getChannelList(db))
 			{
-				ePtr<eDVBResourceManager> res;
-				if (!eDVBResourceManager::getInstance(res))
+				eDVBChannelID chid;
+				ref.getChannelID(chid);
+				ePtr<iDVBFrontendParameters> feparm;
+				if (!db->getChannelFrontendData(chid, feparm))
 				{
-					ePtr<iDVBChannelList> db;
-					if (!res->getChannelList(db))
+					int system;
+					if (!feparm->getSystem(system))
 					{
-						eDVBChannelID chid;
-						ref.getChannelID(chid);
-						ePtr<iDVBFrontendParameters> feparm;
-						if (!db->getChannelFrontendData(chid, feparm))
+						switch (system)
 						{
-							int system;
-							if (!feparm->getSystem(system))
+							case iDVBFrontend::feSatellite:
 							{
-								ePyObject dict = PyDict_New();
-								switch (system)
-								{
-									case iDVBFrontend::feSatellite:
-									{
-										PutSatelliteDataToDict(dict, feparm);
-										break;
-									}
-									case iDVBFrontend::feTerrestrial:
-									{
-										PutTerrestrialDataToDict(dict, feparm);
-										break;
-									}
-									case iDVBFrontend::feCable:
-									{
-										PutCableDataToDict(dict, feparm);
-										break;
-									}
-									default:
-										eDebug("unknown frontend type %d", system);
-										Py_DECREF(dict);
-										break;
-								}
-								return dict;
+								eDVBFrontendParametersSatellite s;
+								feparm->getDVBS(s);
+								retval = new eDVBSatelliteTransponderData(NULL, 0, s, 0, true);
+								break;
 							}
+							case iDVBFrontend::feTerrestrial:
+							{
+								eDVBFrontendParametersTerrestrial t;
+								feparm->getDVBT(t);
+								retval = new eDVBTerrestrialTransponderData(NULL, 0, t, true);
+								break;
+							}
+							case iDVBFrontend::feCable:
+							{
+								eDVBFrontendParametersCable c;
+								feparm->getDVBC(c);
+								retval = new eDVBCableTransponderData(NULL, 0, c, true);
+								break;
+							}
+							case iDVBFrontend::feATSC:
+							{
+								eDVBFrontendParametersATSC a;
+								feparm->getATSC(a);
+								retval = new eDVBATSCTransponderData(NULL, 0, a, true);
+								break;
+							}
+							default:
+								eDebug("unknown frontend type %d", system);
+								break;
 						}
 					}
 				}
 			}
 		}
 	}
-	Py_RETURN_NONE;
+	return retval;
 }
 
 DEFINE_REF(eStaticServiceDVBBouquetInformation);
@@ -299,7 +304,8 @@ public:
 	int isPlayable(const eServiceReference &ref, const eServiceReference &ignore, bool simulate) { return 1; }
 	int getInfo(const eServiceReference &ref, int w);
 	std::string getInfoString(const eServiceReference &ref,int w);
-	PyObject *getInfoObject(const eServiceReference &r, int what);
+	ePtr<iDVBTransponderData> getTransponderData(const eServiceReference &r);
+	long long getFileSize(const eServiceReference &r);
 };
 
 DEFINE_REF(eStaticServiceDVBPVRInformation);
@@ -429,15 +435,15 @@ std::string eStaticServiceDVBPVRInformation::getInfoString(const eServiceReferen
 	}
 }
 
-PyObject *eStaticServiceDVBPVRInformation::getInfoObject(const eServiceReference &r, int what)
+ePtr<iDVBTransponderData> eStaticServiceDVBPVRInformation::getTransponderData(const eServiceReference &r)
 {
-	switch (what)
-	{
-	case iServiceInformation::sFileSize:
-		return PyLong_FromLongLong(m_parser.m_filesize);
-	default:
-		Py_RETURN_NONE;
-	}
+	ePtr<iDVBTransponderData> retval;
+	return retval;
+}
+
+long long eStaticServiceDVBPVRInformation::getFileSize(const eServiceReference &ref)
+{
+	return m_parser.m_filesize;
 }
 
 RESULT eStaticServiceDVBPVRInformation::getEvent(const eServiceReference &ref, ePtr<eServiceEvent> &evt, time_t start_time)
@@ -553,17 +559,31 @@ static int reindex_work(const std::string& filename)
 	eMPEGStreamParserTS parser; /* Missing packetsize, should be determined from stream? */
 
 	{
+		unsigned int i;
+		bool timingpidset = false;
 		eDVBTSTools tstools;
 		tstools.openFile(filename.c_str(), 1);
-		int pcr_pid;
-		err = tstools.findPMT(NULL, NULL, &pcr_pid);
+		eDVBPMTParser::program program;
+		err = tstools.findPMT(program);
 		if (err)
 		{
 			eDebug("reindex - Failed to find PMT");
 			return err;
 		}
-		eDebug("reindex: pcr_pid=0x%x", pcr_pid);
-		parser.setPid(pcr_pid, iDVBTSRecorder::video_pid, -1); /* -1 = automatic MPEG2/h264 detection */
+		for (i = 0; i < program.videoStreams.size(); i++)
+		{
+			if (timingpidset) break;
+			eDebug("reindex: video pid=0x%x", program.videoStreams[i].pid);
+			parser.setPid(program.videoStreams[i].pid, iDVBTSRecorder::video_pid, program.videoStreams[i].type);
+			timingpidset = true;
+		}
+		for (i = 0; i < program.audioStreams.size(); i++)
+		{
+			if (timingpidset) break;
+			eDebug("reindex: audio pid=0x%x", program.audioStreams[i].pid);
+			parser.setPid(program.audioStreams[i].pid, iDVBTSRecorder::audio_pid, program.audioStreams[i].type);
+			timingpidset = true;
+		}
 	}
 
 	parser.startSave(filename);
@@ -1037,7 +1057,7 @@ eDVBServicePlay::~eDVBServicePlay()
 			meta.updateMeta(m_reference.path);
 		}
 	}
-	delete m_subtitle_widget;
+	if (m_subtitle_widget) m_subtitle_widget->destroy();
 }
 
 void eDVBServicePlay::gotNewEvent(int error)
@@ -1114,10 +1134,8 @@ void eDVBServicePlay::serviceEvent(int event)
 		/* fill now/next with info from the epg cache, will be replaced by EIT when it arrives */
 		updateEpgCacheNowNext();
 
-		std::string show_eit_nownext;
 		/* default behaviour is to start an eit reader, and wait for now/next info, unless this is disabled */
-		if (ePythonConfigQuery::getConfigValue("config.usage.show_eit_nownext", show_eit_nownext) < 0
-			|| show_eit_nownext != "False")
+		if (eConfigManager::getConfigBoolValue("config.usage.show_eit_nownext", true))
 		{
 			ePtr<iDVBDemux> m_demux;
 			if (!m_service_handler.getDataDemux(m_demux))
@@ -1657,8 +1675,9 @@ RESULT eDVBServicePlay::timeshift(ePtr<iTimeshiftService> &ptr)
 		if (!m_timeshift_enabled)
 		{
 			/* query config path */
-			std::string tspath;
-			if(ePythonConfigQuery::getConfigValue("config.usage.timeshift_path", tspath) == -1){
+			std::string tspath = eConfigManager::getConfigValue("config.usage.timeshift_path");
+			if(tspath == "")
+			{
 				eDebug("could not query ts path from config");
 				return -4;
 			}
@@ -1902,20 +1921,14 @@ std::string eDVBServicePlay::getInfoString(int w)
 	return iServiceInformation::getInfoString(w);
 }
 
-PyObject *eDVBServicePlay::getInfoObject(int w)
+ePtr<iDVBTransponderData> eDVBServicePlay::getTransponderData()
 {
-	switch (w)
-	{
-	case sCAIDs:
-		return m_service_handler.getCaIds();
-	case sCAIDPIDs:
-		return m_service_handler.getCaIds(true);
-	case sTransponderData:
-		return eStaticServiceDVBInformation().getInfoObject(m_reference, w);
-	default:
-		break;
-	}
-	return iServiceInformation::getInfoObject(w);
+	return eStaticServiceDVBInformation().getTransponderData(m_reference);
+}
+
+void eDVBServicePlay::getCaIds(std::vector<int> &caids, std::vector<int> &ecmpids)
+{
+	m_service_handler.getCaIds(caids, ecmpids);
 }
 
 int eDVBServicePlay::getNumberOfTracks()
@@ -2201,75 +2214,41 @@ int eDVBServiceBase::getFrontendInfo(int w)
 	return fe->readFrontendData(w);
 }
 
-PyObject *eDVBServiceBase::getFrontendData()
+ePtr<iDVBFrontendData> eDVBServiceBase::getFrontendData()
 {
-	ePyObject ret = PyDict_New();
-	if (ret)
+	ePtr<iDVBFrontendData> ret;
+	eUsePtr<iDVBChannel> channel;
+	if(!m_service_handler.getChannel(channel))
 	{
-		eUsePtr<iDVBChannel> channel;
-		if(!m_service_handler.getChannel(channel))
-		{
-			ePtr<iDVBFrontend> fe;
-			if(!channel->getFrontend(fe))
-				fe->getFrontendData(ret);
-		}
+		ePtr<iDVBFrontend> fe;
+		if(!channel->getFrontend(fe))
+			fe->getFrontendData(ret);
 	}
-	else
-		Py_RETURN_NONE;
 	return ret;
 }
 
-PyObject *eDVBServiceBase::getFrontendStatus()
+ePtr<iDVBFrontendStatus> eDVBServiceBase::getFrontendStatus()
 {
-	ePyObject ret = PyDict_New();
-	if (ret)
+	ePtr<iDVBFrontendStatus> ret;
+	eUsePtr<iDVBChannel> channel;
+	if(!m_service_handler.getChannel(channel))
 	{
-		eUsePtr<iDVBChannel> channel;
-		if(!m_service_handler.getChannel(channel))
-		{
-			ePtr<iDVBFrontend> fe;
-			if(!channel->getFrontend(fe))
-				fe->getFrontendStatus(ret);
-		}
+		ePtr<iDVBFrontend> fe;
+		if(!channel->getFrontend(fe))
+			fe->getFrontendStatus(ret);
 	}
-	else
-		Py_RETURN_NONE;
 	return ret;
 }
 
-PyObject *eDVBServiceBase::getTransponderData(bool original)
+ePtr<iDVBTransponderData> eDVBServiceBase::getTransponderData(bool original)
 {
-	ePyObject ret = PyDict_New();
-	if (ret)
+	ePtr<iDVBTransponderData> ret;
+	eUsePtr<iDVBChannel> channel;
+	if(!m_service_handler.getChannel(channel))
 	{
-		eUsePtr<iDVBChannel> channel;
-		if(!m_service_handler.getChannel(channel))
-		{
-			ePtr<iDVBFrontend> fe;
-			if(!channel->getFrontend(fe))
-				fe->getTransponderData(ret, original);
-		}
-	}
-	else
-		Py_RETURN_NONE;
-	return ret;
-}
-
-PyObject *eDVBServiceBase::getAll(bool original)
-{
-	ePyObject ret = getTransponderData(original);
-	if (ret != Py_None)
-	{
-		eUsePtr<iDVBChannel> channel;
-		if(!m_service_handler.getChannel(channel))
-		{
-			ePtr<iDVBFrontend> fe;
-			if(!channel->getFrontend(fe))
-			{
-				fe->getFrontendData(ret);
-				fe->getFrontendStatus(ret);
-			}
-		}
+		ePtr<iDVBFrontend> fe;
+		if(!channel->getFrontend(fe))
+			fe->getTransponderData(ret, original);
 	}
 	return ret;
 }
@@ -2311,8 +2290,8 @@ RESULT eDVBServicePlay::startTimeshift()
 	if (!m_record)
 		return -3;
 
-	std::string tspath;
-	if(ePythonConfigQuery::getConfigValue("config.usage.timeshift_path", tspath) == -1)
+	std::string tspath = eConfigManager::getConfigValue("config.usage.timeshift_path");
+	if (tspath == "")
 	{
 		eDebug("could not query ts path");
 		return -5;
@@ -2780,12 +2759,12 @@ void eDVBServicePlay::updateDecoder(bool sendSeekableStateChanged)
 		else
 		{
 			std::string value;
-			bool showRadioBackground = (ePythonConfigQuery::getConfigValue("config.misc.showradiopic", value) < 0 || value == "True");
+			bool showRadioBackground = eConfigManager::getConfigBoolValue("config.misc.showradiopic", true);
 			std::string radio_pic;
 			if (showRadioBackground)
-				ePythonConfigQuery::getConfigValue("config.misc.radiopic", radio_pic);
+				radio_pic = eConfigManager::getConfigValue("config.misc.radiopic");
 			else
-				ePythonConfigQuery::getConfigValue("config.misc.blackradiopic", radio_pic);
+				radio_pic = eConfigManager::getConfigValue("config.misc.blackradiopic");
 			m_decoder->setRadioPic(radio_pic);
 		}
 
@@ -2805,19 +2784,14 @@ void eDVBServicePlay::updateDecoder(bool sendSeekableStateChanged)
 			m_subtitle_parser->connectNewPage(slot(*this, &eDVBServicePlay::newDVBSubtitlePage), m_new_dvb_subtitle_page_connection);
 			if (m_timeshift_changed)
 			{
-				ePyObject subs = getCachedSubtitle();
-				if (subs != Py_None)
+				struct SubtitleTrack track;
+				if (getCachedSubtitle(track) >= 0)
 				{
-					int type = PyInt_AsLong(PyTuple_GET_ITEM(subs, 0)),
-							pid = PyInt_AsLong(PyTuple_GET_ITEM(subs, 1)),
-							comp_page = PyInt_AsLong(PyTuple_GET_ITEM(subs, 2)), // ttx page
-							anc_page = PyInt_AsLong(PyTuple_GET_ITEM(subs, 3)); // ttx magazine
-					if (type == 0) // dvb
-						m_subtitle_parser->start(pid, comp_page, anc_page);
-					else if (type == 1) // ttx
-						m_teletext_parser->setPageAndMagazine(comp_page, anc_page);
+					if (track.type == 0) // dvb
+						m_subtitle_parser->start(track.pid, track.page_number, track.magazine_number);
+					else if (track.type == 1) // ttx
+						m_teletext_parser->setPageAndMagazine(track.page_number, track.magazine_number);
 				}
-				Py_DECREF(subs);
 			}
 			m_teletext_parser->start(program.textPid);
 		}
@@ -2974,33 +2948,14 @@ void eDVBServicePlay::cutlistToCuesheet()
 	m_cue->commitSpans();
 }
 
-RESULT eDVBServicePlay::enableSubtitles(eWidget *parent, ePyObject tuple)
+RESULT eDVBServicePlay::enableSubtitles(iSubtitleUser *user, SubtitleTrack &track)
 {
 	if (m_subtitle_widget)
-		disableSubtitles(parent);
+		disableSubtitles();
 
-	ePyObject entry;
-	int tuplesize = PyTuple_Size(tuple);
-	int type = 0;
-
-	if (!PyTuple_Check(tuple))
-		goto error_out;
-
-	if (tuplesize < 1)
-		goto error_out;
-
-	entry = PyTuple_GET_ITEM(tuple, 0);
-
-	if (!PyInt_Check(entry))
-		goto error_out;
-
-	type = PyInt_AsLong(entry);
-
-	if (type == 1)  // teletext subtitles
+	if (track.type == 1)  // teletext subtitles
 	{
 		int page, magazine, pid;
-		if (tuplesize < 4)
-			goto error_out;
 
 		if (!m_teletext_parser)
 		{
@@ -3008,28 +2963,16 @@ RESULT eDVBServicePlay::enableSubtitles(eWidget *parent, ePyObject tuple)
 			return -1;
 		}
 
-		entry = PyTuple_GET_ITEM(tuple, 1);
-		if (!PyInt_Check(entry))
-			goto error_out;
-		pid = PyInt_AsLong(entry);
+		pid = track.pid;
+		page = track.page_number;
+		magazine = track.magazine_number;
 
-		entry = PyTuple_GET_ITEM(tuple, 2);
-		if (!PyInt_Check(entry))
-			goto error_out;
-		page = PyInt_AsLong(entry);
-
-		entry = PyTuple_GET_ITEM(tuple, 3);
-		if (!PyInt_Check(entry))
-			goto error_out;
-		magazine = PyInt_AsLong(entry);
-
-		m_subtitle_widget = new eSubtitleWidget(parent);
-		m_subtitle_widget->resize(parent->size()); /* full size */
+		m_subtitle_widget = user;
 		m_teletext_parser->setPageAndMagazine(page, magazine);
 		if (m_dvb_service)
 			m_dvb_service->setCacheEntry(eDVBService::cSUBTITLE,((pid&0xFFFF)<<16)|((page&0xFF)<<8)|(magazine&0xFF));
 	}
-	else if (type == 0)
+	else if (track.type == 0)
 	{
 		int pid = 0, composition_page_id = 0, ancillary_page_id = 0;
 		if (!m_subtitle_parser)
@@ -3037,26 +2980,12 @@ RESULT eDVBServicePlay::enableSubtitles(eWidget *parent, ePyObject tuple)
 			eDebug("enable dvb subtitles.. no parser !!!");
 			return -1;
 		}
-		if (tuplesize < 4)
-			goto error_out;
 
-		entry = PyTuple_GET_ITEM(tuple, 1);
-		if (!PyInt_Check(entry))
-			goto error_out;
-		pid = PyInt_AsLong(entry);
+		pid = track.pid;
+		composition_page_id = track.page_number;
+		ancillary_page_id = track.magazine_number;
 
-		entry = PyTuple_GET_ITEM(tuple, 2);
-		if (!PyInt_Check(entry))
-			goto error_out;
-		composition_page_id = PyInt_AsLong(entry);
-
-		entry = PyTuple_GET_ITEM(tuple, 3);
-		if (!PyInt_Check(entry))
-			goto error_out;
-		ancillary_page_id = PyInt_AsLong(entry);
-
-		m_subtitle_widget = new eSubtitleWidget(parent);
-		m_subtitle_widget->resize(parent->size()); /* full size */
+		m_subtitle_widget = user;
 		m_subtitle_parser->start(pid, composition_page_id, ancillary_page_id);
 		if (m_dvb_service)
 			m_dvb_service->setCacheEntry(eDVBService::cSUBTITLE, ((pid&0xFFFF)<<16)|((composition_page_id&0xFF)<<8)|(ancillary_page_id&0xFF));
@@ -3065,15 +2994,15 @@ RESULT eDVBServicePlay::enableSubtitles(eWidget *parent, ePyObject tuple)
 		goto error_out;
 	return 0;
 error_out:
-	eDebug("enableSubtitles needs a tuple as 2nd argument!\n"
+	eDebug("enableSubtitles needs a valid type:\n"
 		"for teletext subtitles (0, pid, teletext_page, teletext_magazine)\n"
 		"for dvb subtitles (1, pid, composition_page_id, ancillary_page_id)");
 	return -1;
 }
 
-RESULT eDVBServicePlay::disableSubtitles(eWidget *parent)
+RESULT eDVBServicePlay::disableSubtitles()
 {
-	delete m_subtitle_widget;
+	if (m_subtitle_widget) m_subtitle_widget->destroy();
 	m_subtitle_widget = 0;
 	if (m_subtitle_parser)
 	{
@@ -3090,7 +3019,7 @@ RESULT eDVBServicePlay::disableSubtitles(eWidget *parent)
 	return 0;
 }
 
-PyObject *eDVBServicePlay::getCachedSubtitle()
+RESULT eDVBServicePlay::getCachedSubtitle(struct SubtitleTrack &track)
 {
 	if (m_dvb_service)
 	{
@@ -3098,11 +3027,7 @@ PyObject *eDVBServicePlay::getCachedSubtitle()
 		eDVBServicePMTHandler &h = m_timeshift_active ? m_service_handler_timeshift : m_service_handler;
 		if (!h.getProgramInfo(program))
 		{
-			bool usecache=false;
-			std::string configvalue;
-			if (!ePythonConfigQuery::getConfigValue("config.autolanguage.subtitle_usecache", configvalue))
-				usecache = configvalue == "True";
-
+			bool usecache = eConfigManager::getConfigBoolValue("config.autolanguage.subtitle_usecache");
 			int stream=program.defaultSubtitleStream;
 			int tmp = m_dvb_service->getCacheEntry(eDVBService::cSUBTITLE);
 
@@ -3112,49 +3037,45 @@ PyObject *eDVBServicePlay::getCachedSubtitle()
 				{
 					unsigned int data = (unsigned int)tmp;
 					int pid = (data&0xFFFF0000)>>16;
-					ePyObject tuple = PyTuple_New(4);
-					if (program.textPid==pid) // teletext
-						PyTuple_SET_ITEM(tuple, 0, PyInt_FromLong(1)); // type teletext
+					if (program.textPid == pid) // teletext
+						track.type = 1; // type teletext
 					else
-						PyTuple_SET_ITEM(tuple, 0, PyInt_FromLong(0)); // type dvb
-					PyTuple_SET_ITEM(tuple, 1, PyInt_FromLong(pid)); // pid
-					PyTuple_SET_ITEM(tuple, 2, PyInt_FromLong((data&0xFF00)>>8)); // composition_page / page
-					PyTuple_SET_ITEM(tuple, 3, PyInt_FromLong(data&0xFF)); // ancillary_page / magazine
-					return tuple;
+						track.type = 0; // type dvb
+					track.pid = pid; // pid
+					track.page_number = (data >> 8) & 0xff; // composition_page / page
+					track.magazine_number = data & 0xff; // ancillary_page / magazine
+					return 0;
 				}
 			}
 			if (stream != -1 && (tmp != 0 || !usecache))
 			{
-				if (program.subtitleStreams[stream].subtitling_type == 1 )
+				if (program.subtitleStreams[stream].subtitling_type == 1)
 				{
-					ePyObject tuple = PyTuple_New(4);
-					PyTuple_SET_ITEM(tuple, 0, PyInt_FromLong(1)); // type teletext
-					PyTuple_SET_ITEM(tuple, 1, PyInt_FromLong(program.subtitleStreams[stream].pid));
-					PyTuple_SET_ITEM(tuple, 2, PyInt_FromLong(program.subtitleStreams[stream].teletext_page_number & 0xff));
-					PyTuple_SET_ITEM(tuple, 3, PyInt_FromLong(program.subtitleStreams[stream].teletext_magazine_number & 0x07));
-					return tuple;
+					track.type = 1; // type teletext
+					track.pid = program.subtitleStreams[stream].pid;
+					track.page_number = program.subtitleStreams[stream].teletext_page_number & 0xff;
+					track.magazine_number = program.subtitleStreams[stream].teletext_magazine_number & 0x07;
+					return 0;
 				}
 				else
 				{
-					ePyObject tuple = PyTuple_New(4);
-					PyTuple_SET_ITEM(tuple, 0, PyInt_FromLong(0)); // type dvb
-					PyTuple_SET_ITEM(tuple, 1, PyInt_FromLong(program.subtitleStreams[stream].pid));
-					PyTuple_SET_ITEM(tuple, 2, PyInt_FromLong(program.subtitleStreams[stream].composition_page_id));
-					PyTuple_SET_ITEM(tuple, 3, PyInt_FromLong(program.subtitleStreams[stream].ancillary_page_id));
-					return tuple;
+					track.type = 0; // type dvb
+					track.pid = program.subtitleStreams[stream].pid;
+					track.page_number = program.subtitleStreams[stream].composition_page_id;
+					track.magazine_number = program.subtitleStreams[stream].ancillary_page_id;
+					return 0;
 				}
 			}
 		}
 	}
-	Py_RETURN_NONE;
+	return -1;
 }
 
-PyObject *eDVBServicePlay::getSubtitleList()
+RESULT eDVBServicePlay::getSubtitleList(std::vector<SubtitleTrack> &subtitlelist)
 {
 	if (!m_teletext_parser)
-		Py_RETURN_NONE;
+		return -1;
 
-	ePyObject l = PyList_New(0);
 	std::set<int> added_ttx_pages;
 
 	std::set<eDVBServicePMTHandler::subtitleStream> &subs =
@@ -3169,6 +3090,7 @@ PyObject *eDVBServicePlay::getSubtitleList()
 		for (std::vector<eDVBServicePMTHandler::subtitleStream>::iterator it(program.subtitleStreams.begin());
 			it != program.subtitleStreams.end(); ++it)
 		{
+			struct SubtitleTrack track;
 			switch(it->subtitling_type)
 			{
 				case 0x01: // ebu teletext subtitles
@@ -3178,14 +3100,12 @@ PyObject *eDVBServicePlay::getSubtitleList()
 					int hash = magazine_number << 8 | page_number;
 					if (added_ttx_pages.find(hash) == added_ttx_pages.end())
 					{
-						ePyObject tuple = PyTuple_New(5);
-						PyTuple_SET_ITEM(tuple, 0, PyInt_FromLong(1));
-						PyTuple_SET_ITEM(tuple, 1, PyInt_FromLong(it->pid));
-						PyTuple_SET_ITEM(tuple, 2, PyInt_FromLong(page_number));
-						PyTuple_SET_ITEM(tuple, 3, PyInt_FromLong(magazine_number));
-						PyTuple_SET_ITEM(tuple, 4, PyString_FromString(it->language_code.c_str()));
-						PyList_Append(l, tuple);
-						Py_DECREF(tuple);
+						track.type = 1;
+						track.pid = it->pid;
+						track.page_number = page_number;
+						track.magazine_number = magazine_number;
+						track.language_code = it->language_code;
+						subtitlelist.push_back(track);
 						added_ttx_pages.insert(hash);
 					}
 					break;
@@ -3193,14 +3113,12 @@ PyObject *eDVBServicePlay::getSubtitleList()
 				case 0x10 ... 0x13:
 				case 0x20 ... 0x23: // dvb subtitles
 				{
-					ePyObject tuple = PyTuple_New(5);
-					PyTuple_SET_ITEM(tuple, 0, PyInt_FromLong(0));
-					PyTuple_SET_ITEM(tuple, 1, PyInt_FromLong(it->pid));
-					PyTuple_SET_ITEM(tuple, 2, PyInt_FromLong(it->composition_page_id));
-					PyTuple_SET_ITEM(tuple, 3, PyInt_FromLong(it->ancillary_page_id));
-					PyTuple_SET_ITEM(tuple, 4, PyString_FromString(it->language_code.c_str()));
-					PyList_Insert(l, 0, tuple);
-					Py_DECREF(tuple);
+					track.type = 0;
+					track.pid = it->pid;
+					track.page_number = it->composition_page_id;
+					track.magazine_number = it->ancillary_page_id;
+					track.language_code = it->language_code;
+					subtitlelist.push_back(track);
 					break;
 				}
 			}
@@ -3215,18 +3133,17 @@ PyObject *eDVBServicePlay::getSubtitleList()
 		int hash = magazine_number << 8 | page_number;
 		if (added_ttx_pages.find(hash) == added_ttx_pages.end())
 		{
-			ePyObject tuple = PyTuple_New(5);
-			PyTuple_SET_ITEM(tuple, 0, PyInt_FromLong(1));
-			PyTuple_SET_ITEM(tuple, 1, PyInt_FromLong(it->pid));
-			PyTuple_SET_ITEM(tuple, 2, PyInt_FromLong(page_number));
-			PyTuple_SET_ITEM(tuple, 3, PyInt_FromLong(magazine_number));
-			PyTuple_SET_ITEM(tuple, 4, PyString_FromString("und"));  // undetermined
-			PyList_Append(l, tuple);
-			Py_DECREF(tuple);
+			struct SubtitleTrack track;
+			track.type = 1;
+			track.pid = it->pid;
+			track.page_number = page_number;
+			track.magazine_number = magazine_number;
+			track.language_code = "und";
+			subtitlelist.push_back(track);
 		}
 	}
 
-	return l;
+	return 0;
 }
 
 void eDVBServicePlay::newSubtitleStream()
@@ -3239,23 +3156,15 @@ void eDVBServicePlay::newSubtitlePage(const eDVBTeletextSubtitlePage &page)
 	if (m_subtitle_widget)
 	{
 		int subtitledelay = 0;
-		std::string configvalue;
 		if (!page.m_have_pts && (m_is_pvr || m_timeshift_enabled))
 		{
 			eDebug("Subtitle without PTS and recording");
-			subtitledelay = 315000;
-			if (!ePythonConfigQuery::getConfigValue("config.subtitles.subtitle_noPTSrecordingdelay", configvalue))
-			{
-				subtitledelay = atoi(configvalue.c_str());
-			}
+			subtitledelay = eConfigManager::getConfigIntValue("config.subtitles.subtitle_noPTSrecordingdelay", 315000);
 		}
 		else
 		{
 			/* check the setting for subtitle delay in live playback, either with pts, or without pts */
-			if (!ePythonConfigQuery::getConfigValue("config.subtitles.subtitle_bad_timing_delay", configvalue))
-			{
-				subtitledelay = atoi(configvalue.c_str());
-			}
+			subtitledelay = eConfigManager::getConfigIntValue("config.subtitles.subtitle_bad_timing_delay", 0);
 		}
 
 		if (!page.m_have_pts || subtitledelay)
@@ -3347,12 +3256,8 @@ void eDVBServicePlay::newDVBSubtitlePage(const eDVBSubtitlePage &p)
 			m_decoder->getPTS(0, pos);
 		if ( abs(pos-p.m_show_time)>1800000 && (m_is_pvr || m_timeshift_enabled))
 		{
-			std::string configvalue;
-			int subtitledelay = 315000;
-			if (!ePythonConfigQuery::getConfigValue("config.subtitles.subtitle_noPTSrecordingdelay", configvalue))
-			{
-				subtitledelay = atoi(configvalue.c_str());
-			}
+			eDebug("Subtitle without PTS and recording");
+			int subtitledelay = eConfigManager::getConfigIntValue("config.subtitles.subtitle_noPTSrecordingdelay", 315000);
 
 			eDVBSubtitlePage tmppage;
 			tmppage = p;
@@ -3361,12 +3266,7 @@ void eDVBServicePlay::newDVBSubtitlePage(const eDVBSubtitlePage &p)
 		}
 		else
 		{
-			int subtitledelay = 0;
-			std::string configvalue;
-			if(!ePythonConfigQuery::getConfigValue("config.subtitles.subtitle_bad_timing_delay", configvalue))
-			{
-				subtitledelay = atoi(configvalue.c_str());
-			}
+			int subtitledelay = eConfigManager::getConfigIntValue("config.subtitles.subtitle_bad_timing_delay", 0);
 			if (subtitledelay != 0)
 			{
 				eDVBSubtitlePage tmppage;
@@ -3405,12 +3305,9 @@ void eDVBServicePlay::setAC3Delay(int delay)
 {
 	if (m_dvb_service)
 		m_dvb_service->setCacheEntry(eDVBService::cAC3DELAY, delay ? delay : -1);
-	if (m_decoder) {
-		std::string config_delay;
-		int config_delay_int = 0;
-		if(ePythonConfigQuery::getConfigValue("config.av.generalAC3delay", config_delay) == 0)
-			config_delay_int = atoi(config_delay.c_str());
-		m_decoder->setAC3Delay(delay + config_delay_int);
+	if (m_decoder) 
+	{
+		m_decoder->setAC3Delay(delay + eConfigManager::getConfigIntValue("config.av.generalAC3delay"));
 	}
 }
 
@@ -3418,14 +3315,9 @@ void eDVBServicePlay::setPCMDelay(int delay)
 {
 	if (m_dvb_service)
 		m_dvb_service->setCacheEntry(eDVBService::cPCMDELAY, delay ? delay : -1);
-	if (m_decoder) {
-		std::string config_delay;
-		int config_delay_int = 0;
-		if(ePythonConfigQuery::getConfigValue("config.av.generalPCMdelay", config_delay) == 0)
-			config_delay_int = atoi(config_delay.c_str());
-		else
-			config_delay_int = 0;
-		m_decoder->setPCMDelay(delay + config_delay_int);
+	if (m_decoder) 
+	{
+		m_decoder->setPCMDelay(delay + eConfigManager::getConfigIntValue("config.av.generalPCMdelay"));
 	}
 }
 
@@ -3452,41 +3344,23 @@ RESULT eDVBServicePlay::stream(ePtr<iStreamableService> &ptr)
 	return 0;
 }
 
-PyObject *eDVBServicePlay::getStreamingData()
+ePtr<iStreamData> eDVBServicePlay::getStreamingData()
 {
+	ePtr<iStreamData> retval;
 	eDVBServicePMTHandler::program program;
-	if (m_service_handler.getProgramInfo(program))
+	if (!m_service_handler.getProgramInfo(program))
 	{
-		Py_RETURN_NONE;
+		retval = new eDVBServicePMTHandler::eStreamData(program);
 	}
-
-	ePyObject r = program.createPythonObject();
-	ePtr<iDVBDemux> demux;
-	if (!m_service_handler.getDataDemux(demux))
-	{
-		uint8_t demux_id, adapter_id;
-		if (!demux->getCADemuxID(demux_id))
-			PutToDict(r, "demux", demux_id);
-		if (!demux->getCAAdapterID(adapter_id))
-			PutToDict(r, "adapter", adapter_id);
-	}
-
-	return r;
+	return retval;
 }
 
 
 DEFINE_REF(eDVBServicePlay)
 
-PyObject *eDVBService::getInfoObject(const eServiceReference &ref, int w)
+ePtr<iDVBTransponderData> eDVBService::getTransponderData(const eServiceReference &ref)
 {
-	switch (w)
-	{
-	case iServiceInformation::sTransponderData:
-		return eStaticServiceDVBInformation().getInfoObject(ref, w);
-	default:
-		break;
-	}
-	return iStaticServiceInformation::getInfoObject(ref, w);
+	return eStaticServiceDVBInformation().getTransponderData(ref);
 }
 
 eAutoInitPtr<eServiceFactoryDVB> init_eServiceFactoryDVB(eAutoInitNumbers::service+1, "eServiceFactoryDVB");
