@@ -30,7 +30,7 @@ class AutoDiseqc(Screen, ConfigListScreen):
 		eDVBFrontendParametersSatellite.Inversion_Off, 192, \
 		eDVBFrontendParametersSatellite.System_DVB_S, eDVBFrontendParametersSatellite.Modulation_Auto, \
 		eDVBFrontendParametersSatellite.RollOff_auto, eDVBFrontendParametersSatellite.Pilot_Unknown, \
-		1079, 1, "Astra 1 19.2e"),
+		-1, 0, 1, 1079, 1, "Astra 1 19.2e"),
 
 		# hotbird 130 rai
 		( 10992, 27500, \
@@ -38,7 +38,7 @@ class AutoDiseqc(Screen, ConfigListScreen):
 		eDVBFrontendParametersSatellite.Inversion_Off, 130, \
 		eDVBFrontendParametersSatellite.System_DVB_S, eDVBFrontendParametersSatellite.Modulation_Auto, \
 		eDVBFrontendParametersSatellite.RollOff_auto, eDVBFrontendParametersSatellite.Pilot_Unknown, \
-		12400, 318, "Hotbird 13.0e"),
+		-1, 0, 1, 12400, 318, "Hotbird 13.0e"),
 
 		# astra 49 ntv_mir
 		( 12380, 27500, \
@@ -46,7 +46,7 @@ class AutoDiseqc(Screen, ConfigListScreen):
 		eDVBFrontendParametersSatellite.Inversion_Off, 49, \
 		eDVBFrontendParametersSatellite.System_DVB_S, eDVBFrontendParametersSatellite.Modulation_Auto, \
 		eDVBFrontendParametersSatellite.RollOff_auto, eDVBFrontendParametersSatellite.Pilot_Unknown, \
-		2, 85, "Astra 4A/SES 5 4.9e"),
+		-1, 0, 1, 2, 85, "Astra 4A/SES 5 4.9e"),
 
 		# amos -40 otv
 		( 10722, 27500, \
@@ -54,7 +54,7 @@ class AutoDiseqc(Screen, ConfigListScreen):
 		eDVBFrontendParametersSatellite.Inversion_Off, -40, \
 		eDVBFrontendParametersSatellite.System_DVB_S, eDVBFrontendParametersSatellite.Modulation_Auto, \
 		eDVBFrontendParametersSatellite.RollOff_auto, eDVBFrontendParametersSatellite.Pilot_Unknown, \
-		1,4369,"Amos 2/3 4.0w"),
+		-1, 0, 1, 1,4369,"Amos 2/3 4.0w"),
 
 		# astra 1G  vtv
 		( 12304, 27500, \
@@ -62,7 +62,7 @@ class AutoDiseqc(Screen, ConfigListScreen):
 		eDVBFrontendParametersSatellite.Inversion_Off, 315, \
 		eDVBFrontendParametersSatellite.System_DVB_S, eDVBFrontendParametersSatellite.Modulation_Auto, \
 		eDVBFrontendParametersSatellite.RollOff_auto, eDVBFrontendParametersSatellite.Pilot_Unknown, \
-		5231, 5,"Astra 1G 31.5e"),
+		-1, 0, 1, 5231, 5,"Astra 1G 31.5e"),
 
 		# eutelsat 360 ntv+
 		( 11900, 27500, \
@@ -70,7 +70,7 @@ class AutoDiseqc(Screen, ConfigListScreen):
 		eDVBFrontendParametersSatellite.Inversion_Off, 360, \
 		eDVBFrontendParametersSatellite.System_DVB_S, eDVBFrontendParametersSatellite.Modulation_Auto, \
 		eDVBFrontendParametersSatellite.RollOff_auto, eDVBFrontendParametersSatellite.Pilot_Unknown, \
-		16, 112,"Eutelsat 36A/36B 36.0e"),
+		-1, 0, 1, 16, 112,"Eutelsat 36A/36B 36.0e"),
 
 		# abs 1 
 		( 12640, 22000, \
@@ -78,7 +78,7 @@ class AutoDiseqc(Screen, ConfigListScreen):
 		eDVBFrontendParametersSatellite.Inversion_Off, 750, \
 		eDVBFrontendParametersSatellite.System_DVB_S, eDVBFrontendParametersSatellite.Modulation_Auto, \
 		eDVBFrontendParametersSatellite.RollOff_auto, eDVBFrontendParametersSatellite.Pilot_Unknown, \
-		103, 58,"ABS 1 75.0e"),
+		-1, 0, 1, 103, 58,"ABS 1 75.0e"),
 
 		# yamal 900 bbc
 		( 11057, 26471, \
@@ -86,7 +86,7 @@ class AutoDiseqc(Screen, ConfigListScreen):
 		eDVBFrontendParametersSatellite.Inversion_Off, 900, \
 		eDVBFrontendParametersSatellite.System_DVB_S, eDVBFrontendParametersSatellite.Modulation_Auto, \
 		eDVBFrontendParametersSatellite.RollOff_auto, eDVBFrontendParametersSatellite.Pilot_Unknown, \
-		101, 100,"Yamal 201 90.0e"),
+		-1, 0, 1, 101, 100,"Yamal 201 90.0e"),
 
 	]
 
@@ -100,9 +100,12 @@ class AutoDiseqc(Screen, ConfigListScreen):
 	SAT_TABLE_MODULATION = 7
 	SAT_TABLE_ROLLOFF = 8
 	SAT_TABLE_PILOT = 9
-	SAT_TABLE_TSID = 10
-	SAT_TABLE_ONID = 11
-	SAT_TABLE_NAME = 12
+	SAT_TABLE_IS_ID = 10
+	SAT_TABLE_PLS_MODE = 11
+	SAT_TABLE_PLS_CODE = 12
+	SAT_TABLE_TSID = 13
+	SAT_TABLE_ONID = 14
+	SAT_TABLE_NAME = 15
 
 	def __init__(self, session, feid, nr_of_ports, simple_tone, simple_sat_change):
 		self.skin = AutoDiseqc.skin
