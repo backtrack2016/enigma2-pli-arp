@@ -84,7 +84,7 @@ eHdmiCEC *eHdmiCEC::getInstance()
 void eHdmiCEC::reportPhysicalAddress()
 {
 	struct cec_message txmessage;
-	txmessage.address = 0x0f; /* broadcast */
+	txmessage.address = (logicalAddress << 4) + (0xf); /* broadcast */
 	txmessage.data[0] = 0x84; /* report address */
 	txmessage.data[1] = physicalAddress[0];
 	txmessage.data[2] = physicalAddress[1];
@@ -106,6 +106,14 @@ void eHdmiCEC::getAddressInfo()
 			unsigned char type;
 		} addressinfo;
 
+#else
+		struct
+		{
+			unsigned char logical;
+			unsigned char physical[2];
+			unsigned char type;
+		} addressinfo;
+#endif 
 		if (::ioctl(hdmiFd, 1, &addressinfo) >= 0)
 		{
 			hasdata = true;
@@ -130,18 +138,6 @@ void eHdmiCEC::getAddressInfo()
 				break;
 			}
 		}
-#else
-		struct
-		{
-			unsigned char logical;
-			unsigned char physical[2];
-			unsigned char type;
-		} addressinfo;
-		if (::ioctl(hdmiFd, 1, &addressinfo) >= 0)
-		{
-			hasdata = true;
-		}
-#endif
 		if (hasdata)
 		{
 			deviceType = addressinfo.type;
@@ -239,7 +235,7 @@ void eHdmiCEC::hdmiEvent(int what)
 			{
 				eDebugNoNewLine(" %02X", rxmessage.data[i]);
 			}
-			eDebug(" ");
+			eDebug(" -> %02X ", rxmessage.address);
 			switch (rxmessage.data[0])
 			{
 				case 0x44: /* key pressed */
@@ -306,6 +302,9 @@ long eHdmiCEC::translateKey(unsigned char code)
 		case 0x31:
 			key = 0x193;
 			break;
+		case 0x40:
+			key = 0x74;
+			break;
 		case 0x44:
 			key = 0xcf;
 			break;
@@ -323,6 +322,12 @@ long eHdmiCEC::translateKey(unsigned char code)
 			break;
 		case 0x49:
 			key = 0xd0;
+			break;
+		case 0x4B:
+			key = 0xd0;
+			break;
+		case 0x4C:
+			key = 0xa8;
 			break;
 		case 0x53:
 			key = 0x166;
@@ -358,7 +363,7 @@ long eHdmiCEC::translateKey(unsigned char code)
 			key = 0x6c;
 			break;
 		case 0x0d:
-			key = 0xae;
+			key = 0x66;
 			break;
 		case 0x72:
 			key = 0x18e;
@@ -388,7 +393,7 @@ void eHdmiCEC::sendMessage(struct cec_message &message)
 		{
 			eDebugNoNewLine(" %02X", message.data[i]);
 		}
-		eDebug(" ");
+		eDebug(" -> %02X ", message.address);
 #ifdef DREAMBOX
 		message.flag = 1;
 		::ioctl(hdmiFd, 3, &message);
