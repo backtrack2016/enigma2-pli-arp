@@ -490,7 +490,8 @@ class ScanSetup(ConfigListScreen, Screen, CableTransponderSearchSupport):
 				"transmission_mode" : eDVBFrontendParametersTerrestrial.TransmissionMode_Auto,
 				"guard_interval" : eDVBFrontendParametersTerrestrial.GuardInterval_Auto,
 				"hierarchy": eDVBFrontendParametersTerrestrial.Hierarchy_Auto,
-				"system": eDVBFrontendParametersTerrestrial.System_DVB_T }
+				"system": eDVBFrontendParametersTerrestrial.System_DVB_T,
+				"plp_id": 0 }
 
 			if frontendData is not None:
 				ttype = frontendData.get("tuner_type", "UNKNOWN")
@@ -1031,7 +1032,7 @@ class ScanSimple(ConfigListScreen, Screen, CableTransponderSearchSupport):
 		if InfoBarInstance:
 			InfoBarInstance.checkTimeshiftRunning(self.keyGoCheckTimeshiftCallback)
 		else:
-			InfoBarInstance.checkTimeshiftRunning(True)
+			self.keyGoCheckTimeshiftCallback(True)
 
 	def keyGoCheckTimeshiftCallback(self, answer):
 		if answer:

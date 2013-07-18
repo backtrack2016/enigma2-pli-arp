@@ -23,8 +23,6 @@ extern ManagerHandler_t	ManagerHandler;
 
 class eStaticServiceMP3Info;
 
-class eSubtitleWidget;
-
 class eServiceFactoryMP3: public iServiceHandler
 {
 	DECLARE_REF(eServiceFactoryMP3);
@@ -53,7 +51,50 @@ public:
 	int getLength(const eServiceReference &ref);
 	int getInfo(const eServiceReference &ref, int w);
 	int isPlayable(const eServiceReference &ref, const eServiceReference &ignore, bool simulate) { return 1; }
-	PyObject* getInfoObject(const eServiceReference &ref, int w);
+	long long getFileSize(const eServiceReference &ref);
+};
+
+class eStreamBufferInfo: public iStreamBufferInfo
+{
+	DECLARE_REF(eStreamBufferInfo);
+	int bufferPercentage;
+	int inputRate;
+	int outputRate;
+	int bufferSpace;
+	int bufferSize;
+
+public:
+	eStreamBufferInfo(int percentage, int inputrate, int outputrate, int space, int size);
+
+	int getBufferPercentage() const;
+	int getAverageInputRate() const;
+	int getAverageOutputRate() const;
+	int getBufferSpace() const;
+	int getBufferSize() const;
+};
+
+class eServiceMP3InfoContainer: public iServiceInfoContainer
+{
+	DECLARE_REF(eServiceMP3InfoContainer);
+
+	double doubleValue;
+	GstBuffer *bufferValue;
+
+	unsigned char *bufferData;
+	unsigned int bufferSize;
+#if GST_VERSION_MAJOR >= 1
+	GstMapInfo map;
+#endif
+
+public:
+	eServiceMP3InfoContainer();
+	~eServiceMP3InfoContainer();
+
+	double getDouble(unsigned int index) const;
+	unsigned char *getBuffer(unsigned int &size) const;
+
+	void setDouble(double value);
+	void setBuffer(GstBuffer *buffer);
 };
 
 #ifndef ENABLE_LIBEPLAYER3
@@ -117,7 +158,7 @@ public:
 	int getInfo(int w);
 	std::string getInfoString(int w);
 #ifndef ENABLE_LIBEPLAYER3
-	PyObject *getInfoObject(int w);
+	ePtr<iServiceInfoContainer> getInfoObject(int w);
 #endif
 
 		// iAudioTrackSelection	
@@ -131,14 +172,14 @@ public:
 	RESULT selectChannel(int i);
 
 		// iSubtitleOutput
-	RESULT enableSubtitles(eWidget *parent, SWIG_PYOBJECT(ePyObject) entry);
-	RESULT disableSubtitles(eWidget *parent);
-	PyObject *getSubtitleList();
-	PyObject *getCachedSubtitle();
+	RESULT enableSubtitles(iSubtitleUser *user, SubtitleTrack &track);
+	RESULT disableSubtitles();
+	RESULT getSubtitleList(std::vector<SubtitleTrack> &sublist);
+	RESULT getCachedSubtitle(SubtitleTrack &track);
 
 		// iStreamedService
 	RESULT streamed(ePtr<iStreamedService> &ptr);
-	PyObject *getBufferCharge();
+	ePtr<iStreamBufferInfo> getBufferCharge();
 	int setBufferSize(int size);
 
 		// iAudioDelay
@@ -238,7 +279,7 @@ private:
 	int selectAudioStream(int i);
 	std::vector<audioStream> m_audioStreams;
 	std::vector<subtitleStream> m_subtitleStreams;
-	eSubtitleWidget *m_subtitle_widget;
+	iSubtitleUser *m_subtitle_widget;
 #ifndef ENABLE_LIBEPLAYER3
 	gdouble m_currentTrickRatio;
 #else
@@ -324,14 +365,21 @@ private:
 	static void eplayerCBsubtitleAvail(long int duration_ns, size_t len, char * buffer, void* user_data);
 #endif
 
-	struct SubtitlePage
+	struct subtitle_page_t
 	{
-		enum { Unknown, Pango, Vob } type;
-		ePangoSubtitlePage pango_page;
-		eVobSubtitlePage vob_page;
+		uint32_t start_ms;
+		uint32_t end_ms;
+		std::string text;
+
+		subtitle_page_t(uint32_t start_ms_in, uint32_t end_ms_in, std::string text_in)
+			: start_ms(start_ms_in), end_ms(end_ms_in), text(text_in)
+		{
+		}
 	};
 
-	std::list<SubtitlePage> m_subtitle_pages;
+	typedef std::map<uint32_t, subtitle_page_t> subtitle_pages_map_t;
+	typedef std::pair<uint32_t, subtitle_page_t> subtitle_pages_map_pair_t;
+	subtitle_pages_map_t m_subtitle_pages;
 	ePtr<eTimer> m_subtitle_sync_timer;
 	
 	ePtr<eTimer> m_streamingsrc_timeout;

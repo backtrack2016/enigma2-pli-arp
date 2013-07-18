@@ -14,6 +14,7 @@ dvb_libenigma_dvb_a_SOURCES = \
 	dvb/esection.cpp \
 	dvb/fastscan.cpp \
 	dvb/frontend.cpp \
+	dvb/frontendparms.cpp \
 	dvb/metaparser.cpp \
 	dvb/pesparse.cpp \
 	dvb/pmt.cpp \
@@ -26,7 +27,8 @@ dvb_libenigma_dvb_a_SOURCES = \
 	dvb/teletext.cpp \
 	dvb/tstools.cpp \
 	dvb/volume.cpp \
-	dvb/streamserver.cpp
+	dvb/streamserver.cpp \
+	dvb/pmtparse.cpp
 
 dvbincludedir = $(pkgincludedir)/lib/dvb
 dvbinclude_HEADERS = \
@@ -61,4 +63,5 @@ dvbinclude_HEADERS = \
 	dvb/teletext.h \
 	dvb/tstools.h \
 	dvb/volume.h \
-	dvb/streamserver.h
+	dvb/streamserver.h \
+	dvb/pmtparse.h

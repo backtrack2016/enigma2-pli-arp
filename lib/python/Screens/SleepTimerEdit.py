@@ -6,7 +6,6 @@ from Components.ConfigList import ConfigListScreen
 from Components.Label import Label
 from Components.Sources.StaticText import StaticText
 from Components.config import config, getConfigListEntry
-from Tools.Notifications import AddPopup
 from enigma import eEPGCache
 from time import time
 
@@ -22,14 +21,8 @@ class SleepTimerEdit(ConfigListScreen, Screen):
 		self["description"] = Label("")
 
 		self.list = []
-		self.list.append(getConfigListEntry(_("Sleeptimer"),
-			config.usage.sleep_timer,
-			_("Configure the duration in minutes and action (shut down or standby) for the sleeptimer. Select this entry and click OK or green to start/stop the sleeptimer")))
-		self.list.append(getConfigListEntry(_("Action when receiver is not controlled"),
-			config.usage.inactivity_timer,
-			_("Configure the duration in hours and action (shut down or standby) when the receiver is not controlled.")))
-
 		ConfigListScreen.__init__(self, self.list, session = session)
+		self.createSetup()
 		
 		self["setupActions"] = ActionMap(["SetupActions", "ColorActions"],
 		{
@@ -39,12 +32,44 @@ class SleepTimerEdit(ConfigListScreen, Screen):
 		    "ok": self.ok,
 		}, -2)
 
+		self.onLayoutFinish.append(self.layoutFinished)
+
 	def layoutFinished(self):
 		self.setTitle(self.setup_title)
+
+	def createSetup(self):
+		self.list = []
+		self.list.append(getConfigListEntry(_("Sleeptimer"),
+			config.usage.sleep_timer,
+			_("Configure the duration in minutes and action, which could be shut down or standby, for the sleeptimer. Select this entry and click OK or green to start/stop the sleeptimer")))
+		self.list.append(getConfigListEntry(_("Inactivity Sleeptimer"),
+			config.usage.inactivity_timer,
+			_("Configure the duration in hours and action, which could be shut down or standby, when the receiver is not controlled.")))
+		if int(config.usage.inactivity_timer.value):
+			self.list.append(getConfigListEntry(_("Specify timeframe to ignore inactivity sleeptimer"),
+				config.usage.inactivity_timer_blocktime,
+				_("When enabled you can specify a timeframe were the inactivity sleeptimer is ignored. Not the detection is disabled during this timeframe but the inactivity timeout is disabled")))
+			if config.usage.inactivity_timer_blocktime.value:
+				self.list.append(getConfigListEntry(_("Start time to ignore inactivity sleeptimer"),
+					config.usage.inactivity_timer_blocktime_begin,
+					_("Specify the start time when the inactivity sleeptimer should be ignored")))
+				self.list.append(getConfigListEntry(_("End time to ignore inactivity sleeptimer"),
+					config.usage.inactivity_timer_blocktime_end,
+					_("Specify the end time until the inactivity sleeptimer should be ignored")))
+		self.list.append(getConfigListEntry(_("Shutdown when in Standby"),
+			config.usage.standby_to_shutdown_timer,
+			_("Configure the duration when the receiver should go to shut down in case the receiver is in standby mode.")))
+
+		self["config"].list = self.list
+		self["config"].l.setList(self.list)
 
 	def ok(self):
 		config.usage.sleep_timer.save()
 		config.usage.inactivity_timer.save()
+		config.usage.inactivity_timer_blocktime.save()
+		config.usage.inactivity_timer_blocktime_begin.save()
+		config.usage.inactivity_timer_blocktime_end.save()
+		config.usage.standby_to_shutdown_timer.save()
 		if self.getCurrentEntry() == _("Sleeptimer"):
 			sleepTimer = config.usage.sleep_timer.value
 			if sleepTimer == "event_shutdown":
@@ -53,18 +78,7 @@ class SleepTimerEdit(ConfigListScreen, Screen):
 				sleepTimer = self.currentEventTime()
 			else:
 				sleepTimer = int(sleepTimer)
-			if sleepTimer:
-				if sleepTimer < 0:
-					message = _("And will shutdown your receiver over ")
-				else:
-					message = _("And will put your receiver in standby over ")
-				m = abs(sleepTimer / 60)
-				message = _("The sleep timer has been activated.") + "\n" + message + ngettext("%d minute", "%d minutes", m) % m
-				InfoBar.instance.setSleepTimer(sleepTimer)
-			else:
-				message = _("The sleep timer has been disabled.")
-				InfoBar.instance.setSleepTimer(0)
-			AddPopup(message, type = MessageBox.TYPE_INFO, timeout = 5)
+			InfoBar.instance.setSleepTimer(sleepTimer)
 			self.close(True)
 		self.close()
 
@@ -78,6 +92,14 @@ class SleepTimerEdit(ConfigListScreen, Screen):
 			for x in self["config"].list:
 				x[1].cancel()
 			self.close()
+
+	def keyLeft(self):
+		ConfigListScreen.keyLeft(self)
+		self.createSetup()
+
+	def keyRight(self):
+		ConfigListScreen.keyRight(self)
+		self.createSetup()
 
 	def getCurrentEntry(self):
 		return self["config"].getCurrent()[0]
