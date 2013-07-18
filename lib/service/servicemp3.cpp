@@ -306,6 +306,7 @@ int eStreamBufferInfo::getBufferSize() const
 	return bufferSize;
 }
 
+#ifndef ENABLE_LIBEPLAYER3
 DEFINE_REF(eServiceMP3InfoContainer);
 
 eServiceMP3InfoContainer::eServiceMP3InfoContainer()
@@ -356,6 +357,7 @@ void eServiceMP3InfoContainer::setBuffer(GstBuffer *buffer)
 	bufferSize = map.size;
 #endif
 }
+#endif
 
 // eServiceMP3
 int eServiceMP3::ac3_delay = 0,
@@ -2734,7 +2736,7 @@ RESULT eServiceMP3::enableSubtitles(iSubtitleUser *user, struct SubtitleTrack &t
 	}
 #ifdef ENABLE_LIBEPLAYER3
 	if (player && player->playback)
-		player->playback->Command(player, PLAYBACK_SWITCH_SUBTITLE, (void*)&pid);
+		player->playback->Command(player, PLAYBACK_SWITCH_SUBTITLE, (void*)&track.pid);
 #endif
 
 	return 0;
