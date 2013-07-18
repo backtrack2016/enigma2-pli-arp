@@ -46,11 +46,6 @@ static void signal_handler(int x)
 
 static void ignore_but_report_signals()
 {
-	if (m_buffer == NULL) {
-		eFatal("Failed to allocate %d bytes", m_buffersize);
-		return;
-	}
-
 	/* we set the signal to not restart syscalls, so we can detect our signal. */
 	struct sigaction act;
 	act.sa_handler = signal_handler; // no, SIG_IGN doesn't do it. we want to receive the -EINTR
