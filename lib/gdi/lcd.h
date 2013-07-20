@@ -8,11 +8,11 @@
 #ifdef HAVE_GRAPHLCD
 #include <glcdgraphics/bitmap.h>
 #include <glcdgraphics/glcd.h>
-#include <glcdgraphics/image.h>
+//#include <glcdgraphics/image.h>
 #include <glcddrivers/config.h>
 #include <glcddrivers/driver.h>
 #include <glcddrivers/drivers.h>
-#include <glcdgraphics/extformats.h>
+//#include <glcdgraphics/extformats.h>
 #include <byteswap.h>
 #endif
 
@@ -61,7 +61,7 @@ class eDBoxLCD: public eLCD
 	int is_oled;
 #ifdef HAVE_GRAPHLCD
 	GLCD::cDriver * lcd;
-	GLCD::cBitmap * bitmap;
+	GLCD::cBitmapAbs * bitmap;
 	int displayNumber;
 	int depth;
 	int width, height;
