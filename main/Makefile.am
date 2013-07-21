@@ -61,10 +61,6 @@ enigma2_LDADD += \
 	-leplayer3
 endif
 
-if HAVE_GRAPHLCD
-enigma2_LDADD += -lglcddrivers -lglcdgraphics -lglcdskin
-endif
-
 enigma2_LDFLAGS = -Wl,--export-dynamic
 
 if HAVE_GIT_DIR
