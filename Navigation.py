@@ -4,7 +4,6 @@ from Tools.BoundFunction import boundFunction
 from Tools.StbHardware import setFPWakeuptime, getFPWakeuptime, getFPWasTimerWakeup
 from time import time
 import RecordTimer
-import SleepTimer
 import Screens.Standby
 import NavigationInstance
 import ServiceReference
@@ -31,7 +30,9 @@ class Navigation:
 		self.currentlyPlayingServiceOrGroup = None
 		self.currentlyPlayingService = None
 		self.RecordTimer = RecordTimer.RecordTimer()
+		self.__wasTimerWakeup = False
 		if getFPWasTimerWakeup():
+			self.__wasTimerWakeup = True
 			if nextRecordTimerAfterEventActionAuto:
 				# We need to give the systemclock the chance to sync with the transponder time,
 				# before we will make the decision about whether or not we need to shutdown
@@ -39,7 +40,9 @@ class Navigation:
 				self.recordshutdowntimer = eTimer()
 				self.recordshutdowntimer.callback.append(self.checkShutdownAfterRecording)
 				self.recordshutdowntimer.start(30000, True)
-		self.SleepTimer = SleepTimer.SleepTimer()
+
+	def wasTimerWakeup(self):
+		return self.__wasTimerWakeup
 
 	def checkShutdownAfterRecording(self):
 		if len(self.getRecordings()) or abs(self.RecordTimer.getNextRecordingTime() - time()) <= 360:

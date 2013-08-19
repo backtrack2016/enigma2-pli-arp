@@ -314,6 +314,8 @@ void eDBoxLCD::setFlipped(bool onoff)
 /* **************************************************************** */
 /* Pearl LCD */
 
+#include <dlfcn.h>
+
 eDBoxLCD::eDBoxLCD()
 {
 	eDebug("eDBoxLCD::eDBoxLCD >");
@@ -323,20 +325,62 @@ eDBoxLCD::eDBoxLCD()
 
 	instance=this;
 
-	if (GLCD::Config.Load("/etc/graphlcd.conf") == false)
+	void *glcddrivers_handle  = dlopen("libglcddrivers.so.2", RTLD_LAZY);
+	void *glcdgraphics_handle = dlopen("libglcdgraphics.so.2", RTLD_LAZY);
+	if (glcddrivers_handle == NULL)
+	{
+		eDebug("Could not load %s! -> No graphlcd support available\n", "libglcddrivers.so.2");
+		return;
+	}
+	if (glcdgraphics_handle == NULL)
+	{
+		eDebug("Could not load %s! -> No graphlcd support available\n", "libglcdgraphics.so.2");
+		return;
+	}
+	
+	
+	GLCD::cConfigAbs * (*GLCD_CreateConfig)();
+	GLCD_CreateConfig = (GLCD::cConfigAbs* (*)(void))dlsym(glcddrivers_handle, "CreateConfig");
+	if (GLCD_CreateConfig == NULL)
+	{
+		eDebug("Could not load %s! -> No graphlcd support available\n", "GLCD_CreateConfig");
+		return;
+	}
+	
+	GLCD::cConfigAbs *GLCD_Config = GLCD_CreateConfig();
+
+	GLCD::cDriver * (*GLCD_CreateDriver)(int driverID, GLCD::cDriverConfig * config);
+	GLCD_CreateDriver = (GLCD::cDriver* (*)(int, GLCD::cDriverConfig*))dlsym(glcddrivers_handle, "CreateDriver2");
+	if (GLCD_CreateDriver == NULL)
+	{
+		eDebug("Could not load %s! -> No graphlcd support available\n", "GLCD_CreateDriver");
+		return;
+	}
+
+
+	GLCD::cBitmap * (*GLCD_CreateBitmap)(int width, int height);
+	GLCD_CreateBitmap = (GLCD::cBitmap* (*)(int, int))dlsym(glcdgraphics_handle, "CreateBitmap");
+	if (GLCD_CreateBitmap == NULL)
+	{
+		eDebug("Could not load %s! -> No graphlcd support available\n", "GLCD_CreateBitmap");
+		return;
+	}
+
+	if (GLCD_Config->Load("/etc/graphlcd.conf") == false)
 	{
 		eDebug("Error loading config file!\n");
 		return;
 	}
-	if (GLCD::Config.driverConfigs.size() <= 0)
+	if (GLCD_Config->GetDriverConfigsSize() <= 0)
 	{
 		eDebug("ERROR: No displays specified in config file!\n");
+		return;
 	}
 
-	GLCD::Config.driverConfigs[displayNumber].upsideDown ^= 0;
-	GLCD::Config.driverConfigs[displayNumber].invert ^= 0;
+	GLCD_Config->GetDriverConfig(displayNumber)->upsideDown ^= 0;
+	GLCD_Config->GetDriverConfig(displayNumber)->invert ^= 0;
 
-	lcd = GLCD::CreateDriver(GLCD::Config.driverConfigs[displayNumber].id, &GLCD::Config.driverConfigs[displayNumber]);
+	lcd = GLCD_CreateDriver(GLCD_Config->GetDriverConfig(displayNumber)->id, GLCD_Config->GetDriverConfig(displayNumber));
 
 	if (!lcd)
 	{
@@ -353,15 +397,15 @@ eDBoxLCD::eDBoxLCD()
 		return;
 #endif
 	}
-	lcd->SetBrightness(GLCD::Config.driverConfigs[displayNumber].brightness);
+	lcd->SetBrightness(GLCD_Config->GetDriverConfig(displayNumber)->brightness);
 
 	lcd->GetFeature((std::string) "depth", depth);
-	width = GLCD::Config.driverConfigs[displayNumber].width;
-	height = GLCD::Config.driverConfigs[displayNumber].height;
+	width = GLCD_Config->GetDriverConfig(displayNumber)->width;
+	height = GLCD_Config->GetDriverConfig(displayNumber)->height;
 
 	eDebug("config -> (w %d, h %d)", width, height);
 
-	bitmap = new GLCD::cBitmap(width, height);
+	bitmap = GLCD_CreateBitmap(width, height);
 	bitmap->Clear();
 
 	lcd->SetScreen(bitmap->Data(), bitmap->Width(), bitmap->Height());

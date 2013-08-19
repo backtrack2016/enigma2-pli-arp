@@ -431,6 +431,9 @@ class MovieSelectionSummary(Screen):
 			self["name"].text = ""
 
 class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
+	# SUSPEND_PAUSES actually means "please call my pauseService()"
+	ALLOW_SUSPEND = Screen.SUSPEND_PAUSES
+
 	def __init__(self, session, selectedmovie = None, timeshiftEnabled = False):
 		Screen.__init__(self, session)
 		HelpableScreen.__init__(self)
@@ -766,6 +769,16 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 			self["DescriptionBorder"].hide()
 			self["list"].instance.resize(eSize(self.listWidth, self.listHeight))
 
+	def pauseService(self):
+		# Called when pressing Power button (go to standby)
+		self.playbackStop()
+		self.session.nav.stopService()
+
+	def unPauseService(self):
+		# When returning from standby. It might have been a while, so
+		# reload the list.
+		self.reloadList()
+
 	def can_delete(self, item):
 		if not item:
 			return False
@@ -908,25 +921,28 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 				if ext in AUDIO_EXTENSIONS:
 					self.callLater(self.preview)
 
-	def preview(self, answer = True):
+	def preview(self):
 		current = self.getCurrent()
 		if current is not None:
 			path = current.getPath()
 			if current.flags & eServiceReference.mustDescent:
 				self.gotFilename(path)
 			else:
-				if not answer or Screens.InfoBar.InfoBar.instance.checkTimeshiftRunning(self.preview):
-					return
-				playInBackground = self.list.playInBackground
-				if playInBackground:
-					self.list.playInBackground = None
-					self.session.nav.stopService()
-					if playInBackground != current:
-						# come back to play the new one
-						self.callLater(self.preview)
-				else:
-					self.list.playInBackground = current
-					self.session.nav.playService(current)
+				Screens.InfoBar.InfoBar.instance.checkTimeshiftRunning(self.previewCheckTimeshiftCallback)
+
+	def previewCheckTimeshiftCallback(self, answer):
+		if answer:
+			current = self.getCurrent()
+			playInBackground = self.list.playInBackground
+			if playInBackground:
+				self.list.playInBackground = None
+				self.session.nav.stopService()
+				if playInBackground != current:
+					# come back to play the new one
+					self.callLater(self.preview)
+			else:
+				self.list.playInBackground = current
+				self.session.nav.playService(current)
 
 	def seekRelative(self, direction, amount):
 		if self.list.playInBackground:
@@ -946,10 +962,9 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 			path = current.getPath()
 			if current.flags & eServiceReference.mustDescent:
 				if path.endswith("VIDEO_TS/") or os.path.exists(os.path.join(path, 'VIDEO_TS.IFO')):
-					if not answer or Screens.InfoBar.InfoBar.instance.checkTimeshiftRunning(self.itemSelected):
-						return
-					if self.playAsDVD(path):
-						return
+					#force a DVD extention
+					Screens.InfoBar.InfoBar.instance.checkTimeshiftRunning(boundFunction(self.itemSelectedCheckTimeshiftCallback, ".iso", path))
+					return
 				self.gotFilename(path)
 			else:
 				ext = os.path.splitext(path)[1].lower()
@@ -978,12 +993,14 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 					except Exception, ex:
 					        print "[ML] Cannot display", str(ex)
 					return
-				if not answer or Screens.InfoBar.InfoBar.instance.checkTimeshiftRunning(self.itemSelected):
+				Screens.InfoBar.InfoBar.instance.checkTimeshiftRunning(boundFunction(self.itemSelectedCheckTimeshiftCallback, ext, path))
+
+	def itemSelectedCheckTimeshiftCallback(self, ext, path, answer):
+		if answer:
+			if ext in DVD_EXTENSIONS:
+				if self.playAsDVD(path):
 					return
-				if ext in DVD_EXTENSIONS:
-					if self.playAsDVD(path):
-						return
-				self.movieSelected()
+			self.movieSelected()
 
 	# Note: DVDBurn overrides this method, hence the itemSelected indirection.
 	def movieSelected(self):

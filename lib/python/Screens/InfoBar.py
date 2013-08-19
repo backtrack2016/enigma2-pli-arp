@@ -16,12 +16,12 @@ from enigma import iServiceInformation
 profile("LOAD:InfoBarGenerics")
 from Screens.InfoBarGenerics import InfoBarShowHide, \
 	InfoBarNumberZap, InfoBarChannelSelection, InfoBarMenu, InfoBarRdsDecoder, \
-	InfoBarEPG, InfoBarSeek, InfoBarInstantRecord, InfoBarRedButton, InfoBarTimerButton, \
+	InfoBarEPG, InfoBarSeek, InfoBarInstantRecord, InfoBarRedButton, InfoBarTimerButton, InfoBarVmodeButton, \
 	InfoBarAudioSelection, InfoBarAdditionalInfo, InfoBarNotifications, InfoBarDish, InfoBarUnhandledKey, \
 	InfoBarSubserviceSelection, InfoBarShowMovies, InfoBarTimeshift,  \
 	InfoBarServiceNotifications, InfoBarPVRState, InfoBarCueSheetSupport, InfoBarSimpleEventView, \
 	InfoBarSummarySupport, InfoBarMoviePlayerSummarySupport, InfoBarTimeshiftState, InfoBarTeletextPlugin, InfoBarExtensions, \
-	InfoBarSubtitleSupport, InfoBarPiP, InfoBarPlugins, InfoBarServiceErrorPopupSupport, InfoBarJobman, InfoBarInactivity, \
+	InfoBarSubtitleSupport, InfoBarPiP, InfoBarPlugins, InfoBarServiceErrorPopupSupport, InfoBarJobman, InfoBarPowersaver, \
 	InfoBarAspectSelection, InfoBarSleepTimer, setResumePoint, delResumePoint
 
 profile("LOAD:InitBar_Components")
@@ -34,11 +34,11 @@ from Screens.HelpMenu import HelpableScreen
 
 class InfoBar(InfoBarBase, InfoBarShowHide,
 	InfoBarNumberZap, InfoBarChannelSelection, InfoBarMenu, InfoBarEPG, InfoBarRdsDecoder,
-	InfoBarInstantRecord, InfoBarAudioSelection, InfoBarRedButton, InfoBarTimerButton,
+	InfoBarInstantRecord, InfoBarAudioSelection, InfoBarRedButton, InfoBarTimerButton, InfoBarVmodeButton,
 	HelpableScreen, InfoBarAdditionalInfo, InfoBarNotifications, InfoBarDish, InfoBarUnhandledKey,
 	InfoBarSubserviceSelection, InfoBarTimeshift, InfoBarSeek,
 	InfoBarSummarySupport, InfoBarTimeshiftState, InfoBarTeletextPlugin, InfoBarExtensions,
-	InfoBarPiP, InfoBarPlugins, InfoBarSubtitleSupport, InfoBarServiceErrorPopupSupport, InfoBarJobman, InfoBarInactivity,
+	InfoBarPiP, InfoBarPlugins, InfoBarSubtitleSupport, InfoBarServiceErrorPopupSupport, InfoBarJobman, InfoBarPowersaver,
 	InfoBarAspectSelection, InfoBarSleepTimer, Screen):
 	
 	ALLOW_SUSPEND = True
@@ -61,10 +61,10 @@ class InfoBar(InfoBarBase, InfoBarShowHide,
 		for x in HelpableScreen, \
 				InfoBarBase, InfoBarShowHide, \
 				InfoBarNumberZap, InfoBarChannelSelection, InfoBarMenu, InfoBarEPG, InfoBarRdsDecoder, \
-				InfoBarInstantRecord, InfoBarAudioSelection, InfoBarRedButton, InfoBarTimerButton, InfoBarUnhandledKey, \
+				InfoBarInstantRecord, InfoBarAudioSelection, InfoBarRedButton, InfoBarTimerButton, InfoBarUnhandledKey, InfoBarVmodeButton,\
 				InfoBarAdditionalInfo, InfoBarNotifications, InfoBarDish, InfoBarSubserviceSelection, \
 				InfoBarTimeshift, InfoBarSeek, InfoBarSummarySupport, InfoBarTimeshiftState, \
-				InfoBarTeletextPlugin, InfoBarExtensions, InfoBarPiP, InfoBarSubtitleSupport, InfoBarJobman, InfoBarInactivity, \
+				InfoBarTeletextPlugin, InfoBarExtensions, InfoBarPiP, InfoBarSubtitleSupport, InfoBarJobman, InfoBarPowersaver, \
 				InfoBarAspectSelection, InfoBarSleepTimer, InfoBarPlugins, InfoBarServiceErrorPopupSupport:
 			x.__init__(self)
 
@@ -165,7 +165,7 @@ class InfoBar(InfoBarBase, InfoBarShowHide,
 
 	def showMovies(self, defaultRef=None):
 		self.lastservice = self.session.nav.getCurrentlyPlayingServiceOrGroup()
-		self.session.openWithCallback(self.movieSelected, Screens.MovieSelection.MovieSelection, defaultRef, timeshiftEnabled = self.timeshift_enabled)
+		self.session.openWithCallback(self.movieSelected, Screens.MovieSelection.MovieSelection, defaultRef, timeshiftEnabled = self.timeshiftEnabled())
 
 	def movieSelected(self, service):
 		ref = self.lastservice
@@ -178,7 +178,7 @@ class InfoBar(InfoBarBase, InfoBarShowHide,
 
 class MoviePlayer(InfoBarBase, InfoBarShowHide, \
 		InfoBarMenu, \
-		InfoBarSeek, InfoBarShowMovies, InfoBarAudioSelection, HelpableScreen, InfoBarNotifications,
+		InfoBarSeek, InfoBarShowMovies, InfoBarInstantRecord, InfoBarAudioSelection, HelpableScreen, InfoBarNotifications,
 		InfoBarServiceNotifications, InfoBarPVRState, InfoBarCueSheetSupport, InfoBarSimpleEventView,
 		InfoBarMoviePlayerSummarySupport, InfoBarSubtitleSupport, Screen, InfoBarTeletextPlugin,
 		InfoBarAspectSelection, InfoBarSubserviceSelection,
@@ -207,7 +207,7 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, \
 		self.allowPiP = True
 		
 		for x in HelpableScreen, InfoBarShowHide, InfoBarMenu, \
-				InfoBarBase, InfoBarSeek, InfoBarShowMovies, \
+				InfoBarBase, InfoBarSeek, InfoBarShowMovies, InfoBarInstantRecord, \
 				InfoBarAudioSelection, InfoBarNotifications, InfoBarSimpleEventView, \
 				InfoBarServiceNotifications, InfoBarPVRState, InfoBarCueSheetSupport, \
 				InfoBarMoviePlayerSummarySupport, InfoBarSubtitleSupport, \
@@ -253,14 +253,16 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, \
 		setResumePoint(self.session)
 		self.handleLeave(config.usage.on_movie_stop.value)
 
-	def leavePlayerOnExit(self, answer = None):
+	def leavePlayerOnExit(self):
+		if self.shown:
+			self.hide()
+		else:
+			self.session.openWithCallback(self.leavePlayerOnExitCallback, MessageBox, _("Exit movie player?"), simple=True)
+
+	def leavePlayerOnExitCallback(self, answer):
 		if answer == True:
 			setResumePoint(self.session)
 			self.handleLeave("quit")
-		elif self.shown:
-			self.hide()
-		elif answer is None:
-			self.session.openWithCallback(self.leavePlayerOnExit, MessageBox, _("Exit movie player?"), MessageBox.TYPE_YESNO, simple = True)
 
 	def deleteConfirmed(self, answer):
 		if answer:
@@ -318,7 +320,7 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, \
 			self.doSeek(0)
 			self.setSeekState(self.SEEK_STATE_PLAY)
 		elif answer in ("playlist","playlistquit","loop"):
-			( next_service, item , lenght ) = self.nextPlaylistService(self.cur_service)
+			( next_service, item , lenght ) = self.getPlaylistServiceInfo(self.cur_service)
 			if next_service is not None:
 				if config.usage.next_movie_msg.value:
 					self.displayPlayedName(next_service, item, lenght)
@@ -331,6 +333,12 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, \
 					self.leavePlayerConfirmed([True,"loop"])
 				else:
 					self.leavePlayerConfirmed([True,"quit"])
+		elif answer in ("repeatcurrent"):
+			if config.usage.next_movie_msg.value:
+				(item, lenght) = self.getPlaylistServiceInfo(self.cur_service)
+				self.displayPlayedName(self.cur_service, item, lenght)
+			self.session.nav.stopService()
+			self.session.nav.playService(self.cur_service)
 
 	def doEofInternal(self, playing):
 		if not self.execing:
@@ -441,10 +449,12 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, \
 			if ref and not self.session.nav.getCurrentlyPlayingServiceOrGroup():
 				self.session.nav.playService(ref)
 
-	def nextPlaylistService(self, service):
+	def getPlaylistServiceInfo(self, service):
 		from MovieSelection import playlist
 		for i, item in enumerate(playlist):
 			if item == service:
+				if config.usage.on_movie_eof.value == "repeatcurrent":
+					return (i+1, len(playlist))
 				i += 1
 				if i < len(playlist):
 					return (playlist[i], i+1, len(playlist))

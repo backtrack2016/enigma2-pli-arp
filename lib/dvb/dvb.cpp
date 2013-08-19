@@ -4,6 +4,7 @@
 
 #include <lib/base/eerror.h>
 #include <lib/base/filepush.h>
+#include <lib/base/wrappers.h>
 #include <lib/dvb/cahandler.h>
 #include <lib/dvb/idvb.h>
 #include <lib/dvb/dvb.h>
@@ -315,7 +316,6 @@ eDVBUsbAdapter::eDVBUsbAdapter(int nr)
 {
 	int file;
 	char type[8];
-	struct dmx_pes_filter_params filter;
 	struct dvb_frontend_info fe_info;
 	int frontend = -1;
 	char filename[256];
@@ -353,7 +353,7 @@ eDVBUsbAdapter::eDVBUsbAdapter(int nr)
 
 	if (file >= 0)
 	{
-		int len = read(file, name, sizeof(name) - 1);
+		int len = singleRead(file, name, sizeof(name) - 1);
 		if (len >= 0)
 		{
 			name[len] = 0;
@@ -426,17 +426,6 @@ eDVBUsbAdapter::eDVBUsbAdapter(int nr)
 	}
 
 	eDebug("linking adapter%d/frontend0 to vtuner%d", nr, vtunerid);
-
-	filter.input = DMX_IN_FRONTEND;
-	filter.flags = 0;
-	filter.pid = 0;
-	filter.output = DMX_OUT_TSDEMUX_TAP;
-	filter.pes_type = DMX_PES_OTHER;
-
-#define DEMUX_BUFFER_SIZE (8 * ((188 / 4) * 4096)) /* 1.5MB */
-	ioctl(demuxFd, DMX_SET_BUFFER_SIZE, DEMUX_BUFFER_SIZE);
-	ioctl(demuxFd, DMX_SET_PES_FILTER, &filter);
-	ioctl(demuxFd, DMX_START);
 
 	switch (fe_info.type)
 	{
@@ -519,79 +508,6 @@ eDVBUsbAdapter::~eDVBUsbAdapter()
 	}
 }
 
-int eDVBUsbAdapter::select(int maxfd, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout)
-{
-	int retval;
-	fd_set rset, wset, xset;
-	struct timeval interval;
-	timerclear(&interval);
-
-	/* make a backup of all fd_set's and timeval struct */
-	if (readfds) rset = *readfds;
-	if (writefds) wset = *writefds;
-	if (exceptfds) xset = *exceptfds;
-	if (timeout) interval = *timeout;
-
-	while (1)
-	{
-		retval = ::select(maxfd, readfds, writefds, exceptfds, timeout);
-
-		if (retval < 0)
-		{
-			/* restore the backup before we continue */
-			if (readfds) *readfds = rset;
-			if (writefds) *writefds = wset;
-			if (exceptfds) *exceptfds = xset;
-			if (timeout) *timeout = interval;
-			if (errno == EINTR) continue;
-			break;
-		}
-		break;
-	}
-	return retval;
-}
-
-ssize_t eDVBUsbAdapter::writeAll(int fd, const void *buf, size_t count)
-{
-	ssize_t retval;
-	char *ptr = (char*)buf;
-	size_t handledcount = 0;
-	if (fd < 0) return -1;
-	while (handledcount < count)
-	{
-		retval = ::write(fd, &ptr[handledcount], count - handledcount);
-
-		if (retval == 0) return -1;
-		if (retval < 0)
-		{
-			if (errno == EINTR) continue;
-			return retval;
-		}
-		handledcount += retval;
-	}
-	return handledcount;
-}
-
-ssize_t eDVBUsbAdapter::read(int fd, void *buf, size_t count)
-{
-	ssize_t retval;
-	char *ptr = (char*)buf;
-	size_t handledcount = 0;
-	if (fd < 0) return -1;
-	while (handledcount < count)
-	{
-		retval = ::read(fd, &ptr[handledcount], count - handledcount);
-		if (retval < 0)
-		{
-			if (errno == EINTR) continue;
-			return retval;
-		}
-		handledcount += retval;
-		break; /* one read only */
-	}
-	return handledcount;
-}
-
 void *eDVBUsbAdapter::threadproc(void *arg)
 {
 	eDVBUsbAdapter *user = (eDVBUsbAdapter*)arg;
@@ -600,6 +516,7 @@ void *eDVBUsbAdapter::threadproc(void *arg)
 
 void *eDVBUsbAdapter::vtunerPump()
 {
+	int pidcount = 0;
 	if (vtunerFd < 0 || demuxFd < 0 || pipeFd[0] < 0) return NULL;
 
 #define MSG_PIDLIST         14
@@ -609,6 +526,35 @@ void *eDVBUsbAdapter::vtunerPump()
 		unsigned short int pidlist[30];
 		unsigned char pad[64]; /* nobody knows the much data the driver will try to copy into our struct, add some padding to be sure */
 	};
+
+#define DEMUX_BUFFER_SIZE (8 * ((188 / 4) * 4096)) /* 1.5MB */
+	ioctl(demuxFd, DMX_SET_BUFFER_SIZE, DEMUX_BUFFER_SIZE);
+
+#if DVB_API_VERSION < 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR < 5
+	/*
+	 * HACK: several stb's with older DVB API versions do not handle the
+	 * constant starting / stopping of PES filters on their vtuner interface
+	 * very well, eventually they will stop feeding any data.
+	 * In order to work around this problem, we always start a filter, making sure
+	 * 'pidcount' never drops to zero, so the filter is never stopped.
+	 *
+	 * Note that this isn't allowed for recent DVB API versions, because they
+	 * refuse to start filters while the frontend is sleeping (e.g. not tuned).
+	 */
+	{
+		struct dmx_pes_filter_params filter;
+		filter.input = DMX_IN_FRONTEND;
+		filter.flags = 0;
+		filter.pid = 0;
+		filter.output = DMX_OUT_TSDEMUX_TAP;
+		filter.pes_type = DMX_PES_OTHER;
+		if (ioctl(demuxFd, DMX_SET_PES_FILTER, &filter) >= 0
+				&& ioctl(demuxFd, DMX_START) >= 0)
+		{
+			pidcount = 1;
+		}
+	}
+#endif
 
 	while (running)
 	{
@@ -621,11 +567,12 @@ void *eDVBUsbAdapter::vtunerPump()
 		FD_SET(vtunerFd, &xset);
 		FD_SET(demuxFd, &rset);
 		FD_SET(pipeFd[0], &rset);
-		if (select(maxfd + 1, &rset, NULL, &xset, NULL) > 0)
+		if (Select(maxfd + 1, &rset, NULL, &xset, NULL) > 0)
 		{
 			if (FD_ISSET(vtunerFd, &xset))
 			{
 				int i, j;
+				int count = 0;
 				struct vtuner_message message;
 				memset(message.pidlist, 0xff, sizeof(message.pidlist));
 				::ioctl(vtunerFd, VTUNER_GET_MESSAGE, &message);
@@ -649,7 +596,16 @@ void *eDVBUsbAdapter::vtunerPump()
 
 						if (found) continue;
 
-						::ioctl(demuxFd, DMX_REMOVE_PID, &pidList[i]);
+						if (pidcount > 1)
+						{
+							::ioctl(demuxFd, DMX_REMOVE_PID, &pidList[i]);
+							pidcount--;
+						}
+						else if (pidcount == 1)
+						{
+							::ioctl(demuxFd, DMX_STOP);
+							pidcount = 0;
+						}
 					}
 
 					/* add new pids */
@@ -668,7 +624,25 @@ void *eDVBUsbAdapter::vtunerPump()
 
 						if (found) continue;
 
-						::ioctl(demuxFd, DMX_ADD_PID, &message.pidlist[i]);
+						if (pidcount)
+						{
+							::ioctl(demuxFd, DMX_ADD_PID, &message.pidlist[i]);
+							pidcount++;
+						}
+						else
+						{
+							struct dmx_pes_filter_params filter;
+							filter.input = DMX_IN_FRONTEND;
+							filter.flags = 0;
+							filter.pid = message.pidlist[i];
+							filter.output = DMX_OUT_TSDEMUX_TAP;
+							filter.pes_type = DMX_PES_OTHER;
+							if (ioctl(demuxFd, DMX_SET_PES_FILTER, &filter) >= 0
+									&& ioctl(demuxFd, DMX_START) >= 0)
+							{
+								pidcount = 1;
+							}
+						}
 					}
 
 					/* copy pids */
@@ -681,7 +655,7 @@ void *eDVBUsbAdapter::vtunerPump()
 			}
 			if (FD_ISSET(demuxFd, &rset))
 			{
-				int size = read(demuxFd, buffer, sizeof(buffer));
+				int size = singleRead(demuxFd, buffer, sizeof(buffer));
 				if (writeAll(vtunerFd, buffer, size) <= 0)
 				{
 					break;
@@ -782,7 +756,17 @@ PyObject *eDVBResourceManager::setFrontendSlotInformations(ePyObject list)
 		int pos=0;
 		while (pos < PyList_Size(list)) {
 			ePyObject obj = PyList_GET_ITEM(list, pos++);
-			if (!i->m_frontend->setSlotInfo(obj))
+			ePyObject Id, Descr, Enabled, IsDVBS2, frontendId;
+			if (!PyTuple_Check(obj) || PyTuple_Size(obj) != 5)
+				continue;
+			Id = PyTuple_GET_ITEM(obj, 0);
+			Descr = PyTuple_GET_ITEM(obj, 1);
+			Enabled = PyTuple_GET_ITEM(obj, 2);
+			IsDVBS2 = PyTuple_GET_ITEM(obj, 3);
+			frontendId = PyTuple_GET_ITEM(obj, 4);
+			if (!PyInt_Check(Id) || !PyString_Check(Descr) || !PyBool_Check(Enabled) || !PyBool_Check(IsDVBS2) || !PyInt_Check(frontendId))
+				continue;
+			if (!i->m_frontend->setSlotInfo(PyInt_AsLong(Id), PyString_AS_STRING(Descr), Enabled == Py_True, IsDVBS2 == Py_True, PyInt_AsLong(frontendId)))
 				continue;
 			++assigned;
 			break;
@@ -797,7 +781,17 @@ PyObject *eDVBResourceManager::setFrontendSlotInformations(ePyObject list)
 		int pos=0;
 		while (pos < PyList_Size(list)) {
 			ePyObject obj = PyList_GET_ITEM(list, pos++);
-			if (!i->m_frontend->setSlotInfo(obj))
+			ePyObject Id, Descr, Enabled, IsDVBS2, frontendId;
+			if (!PyTuple_Check(obj) || PyTuple_Size(obj) != 5)
+				continue;
+			Id = PyTuple_GET_ITEM(obj, 0);
+			Descr = PyTuple_GET_ITEM(obj, 1);
+			Enabled = PyTuple_GET_ITEM(obj, 2);
+			IsDVBS2 = PyTuple_GET_ITEM(obj, 3);
+			frontendId = PyTuple_GET_ITEM(obj, 4);
+			if (!PyInt_Check(Id) || !PyString_Check(Descr) || !PyBool_Check(Enabled) || !PyBool_Check(IsDVBS2) || !PyInt_Check(frontendId))
+				continue;
+			if (!i->m_frontend->setSlotInfo(PyInt_AsLong(Id), PyString_AS_STRING(Descr), Enabled == Py_True, IsDVBS2 == Py_True, PyInt_AsLong(frontendId)))
 				continue;
 			break;
 		}
@@ -2079,31 +2073,17 @@ RESULT eDVBChannel::setCIRouting(const eDVBCIRouting &routing)
 
 void eDVBChannel::SDTready(int result)
 {
-	ePyObject args = PyTuple_New(2), ret;
-	bool ok=false;
+	int tsid = -1, onid = -1;
 	if (!result)
 	{
 		for (std::vector<ServiceDescriptionSection*>::const_iterator i = m_SDT->getSections().begin(); i != m_SDT->getSections().end(); ++i)
 		{
-			ok = true;
-			PyTuple_SET_ITEM(args, 0, PyInt_FromLong((*i)->getTransportStreamId()));
-			PyTuple_SET_ITEM(args, 1, PyInt_FromLong((*i)->getOriginalNetworkId()));
+			tsid = (*i)->getTransportStreamId();
+			onid = (*i)->getOriginalNetworkId();
 			break;
 		}
 	}
-	if (!ok)
-	{
-		PyTuple_SET_ITEM(args, 0, Py_None);
-		PyTuple_SET_ITEM(args, 1, Py_None);
-		Py_INCREF(Py_None);
-		Py_INCREF(Py_None);
-	}
-	ret = PyObject_CallObject(m_tsid_onid_callback, args);
-	if (ret)
-		Py_DECREF(ret);
-	Py_DECREF(args);
-	Py_DECREF(m_tsid_onid_callback);
-	m_tsid_onid_callback = ePyObject();
+	/* emit */ receivedTsidOnid(tsid, onid);
 	m_tsid_onid_demux = 0;
 	m_SDT = 0;
 }
@@ -2120,25 +2100,20 @@ int eDVBChannel::reserveDemux()
 	return -1;
 }
 
-RESULT eDVBChannel::requestTsidOnid(ePyObject callback)
+RESULT eDVBChannel::requestTsidOnid()
 {
-	if (PyCallable_Check(callback))
+	if (!getDemux(m_tsid_onid_demux, 0))
 	{
-		if (!getDemux(m_tsid_onid_demux, 0))
+		m_SDT = new eTable<ServiceDescriptionSection>;
+		CONNECT(m_SDT->tableReady, eDVBChannel::SDTready);
+		if (m_SDT->start(m_tsid_onid_demux, eDVBSDTSpec()))
 		{
-			m_SDT = new eTable<ServiceDescriptionSection>;
-			CONNECT(m_SDT->tableReady, eDVBChannel::SDTready);
-			if (m_SDT->start(m_tsid_onid_demux, eDVBSDTSpec()))
-			{
-				m_tsid_onid_demux = 0;
-				m_SDT = 0;
-			}
-			else
-			{
-				Py_INCREF(callback);
-				m_tsid_onid_callback = callback;
-				return 0;
-			}
+			m_tsid_onid_demux = 0;
+			m_SDT = 0;
+		}
+		else
+		{
+			return 0;
 		}
 	}
 	return -1;
@@ -2222,7 +2197,7 @@ RESULT eDVBChannel::playSource(ePtr<iTsSource> &source, const char *streaminfo_f
 		m_pvr_thread = 0;
 	}
 
-	if (!source->valid())
+	if (!source->valid() && !source->isStream())
 	{
 		eDebug("PVR source is not valid!");
 		return -ENOENT;
@@ -2272,8 +2247,7 @@ RESULT eDVBChannel::playSource(ePtr<iTsSource> &source, const char *streaminfo_f
 
 	m_pvr_thread = new eDVBChannelFilePush(m_source->getPacketSize());
 	m_pvr_thread->enablePVRCommit(1);
-	/* If the source specifies a length, it's a file. If not, it's a stream */
-	m_pvr_thread->setStreamMode(m_source->length() <= 0);
+	m_pvr_thread->setStreamMode(m_source->isStream());
 	m_pvr_thread->setScatterGather(this);
 
 	m_event(this, evtPreStart);

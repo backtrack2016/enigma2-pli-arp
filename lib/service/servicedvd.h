@@ -26,6 +26,21 @@ public:
 	RESULT offlineOperations(const eServiceReference &, ePtr<iServiceOfflineOperations> &ptr);
 };
 
+class eServiceDVDInfoContainer: public iServiceInfoContainer
+{
+	DECLARE_REF(eServiceDVDInfoContainer);
+
+	std::vector<int> integerValues;
+	std::vector<std::string> stringValues;
+
+public:
+	int getInteger(unsigned int index) const;
+	std::string getString(unsigned int index) const;
+
+	void addInteger(int value);
+	void addString(const char *value);
+};
+
 class eServiceDVD: public iPlayableService, public iPauseableService, public iSeekableService, public iAudioTrackSelection,
 	public iServiceInformation, public iSubtitleOutput, public iServiceKeys, public iCueSheet, public eThread, public Object
 {
@@ -63,10 +78,10 @@ public:
 	RESULT setFastForward(int ratio);
 
 		// iSubtitleOutput
-	RESULT enableSubtitles(eWidget *parent, SWIG_PYOBJECT(ePyObject) entry);
-	RESULT disableSubtitles(eWidget *parent);
-	PyObject *getSubtitleList();
-	PyObject *getCachedSubtitle();
+	RESULT enableSubtitles(iSubtitleUser *user, SubtitleTrack &track);
+	RESULT disableSubtitles();
+	RESULT getSubtitleList(std::vector<SubtitleTrack> &sublist);
+	RESULT getCachedSubtitle(SubtitleTrack &track);
 
 		// iSeekableService
 	RESULT getLength(pts_t &len);
@@ -82,7 +97,7 @@ public:
 	RESULT getName(std::string &name);
 	int getInfo(int w);
 	std::string getInfoString(int w);
-	virtual PyObject *getInfoObject(int w);
+	ePtr<iServiceInfoContainer> getInfoObject(int w);
 
 		// iCueSheet
 	PyObject *getCutList();
@@ -114,7 +129,7 @@ private:
 
 	struct ddvd *m_ddvdconfig;
 	ePtr<gPixmap> m_pixmap;
-	eSubtitleWidget *m_subtitle_widget;
+	iSubtitleUser *m_subtitle_widget;
 
 	enum
 	{

@@ -8,14 +8,14 @@
 #include <vector>
 #include <string>
 
-#include "socketbase.h"
+#include "wrappers.h"
 
 #include <lib/base/ebase.h>
 #include <lib/base/eerror.h>
 
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
 
-int eSocketBase::select(int maxfd, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout)
+int Select(int maxfd, fd_set *readfds, fd_set *writefds, fd_set *exceptfds, struct timeval *timeout)
 {
 	int retval;
 	fd_set rset, wset, xset;
@@ -47,7 +47,7 @@ int eSocketBase::select(int maxfd, fd_set *readfds, fd_set *writefds, fd_set *ex
 			if (exceptfds) *exceptfds = xset;
 			if (timeout) *timeout = interval;
 			if (errno == EINTR) continue;
-			eDebug("eSocketBase::select error (%m)");
+			eDebug("select error (%m)");
 			break;
 		}
 
@@ -56,7 +56,7 @@ int eSocketBase::select(int maxfd, fd_set *readfds, fd_set *writefds, fd_set *ex
 	return retval;
 }
 
-ssize_t eSocketBase::singleRead(int fd, void *buf, size_t count)
+ssize_t singleRead(int fd, void *buf, size_t count)
 {
 	int retval;
 	while (1)
@@ -65,13 +65,13 @@ ssize_t eSocketBase::singleRead(int fd, void *buf, size_t count)
 		if (retval < 0)
 		{
 			if (errno == EINTR) continue;
-			eDebug("eSocketBase::singleRead error (%m)");
+			eDebug("singleRead error (%m)");
 		}
 		return retval;
 	}
 }
 
-ssize_t eSocketBase::timedRead(int fd, void *buf, size_t count, int initialtimeout, int interbytetimeout)
+ssize_t timedRead(int fd, void *buf, size_t count, int initialtimeout, int interbytetimeout)
 {
 	fd_set rset;
 	struct timeval timeout;
@@ -104,7 +104,7 @@ ssize_t eSocketBase::timedRead(int fd, void *buf, size_t count, int initialtimeo
 	return totalread;
 }
 
-ssize_t eSocketBase::readLine(int fd, char** buffer, size_t* bufsize)
+ssize_t readLine(int fd, char** buffer, size_t* bufsize)
 {
 	size_t i = 0;
 	int result;
@@ -129,7 +129,7 @@ ssize_t eSocketBase::readLine(int fd, char** buffer, size_t* bufsize)
 	return -1;
 }
 
-ssize_t eSocketBase::openHTTPConnection(int fd, const std::string& getRequest, std::string& httpHdr)
+ssize_t openHTTPConnection(int fd, const std::string& getRequest, std::string& httpHdr)
 {
 	fd_set wset, rset;
 	struct timeval timeout;
@@ -197,7 +197,7 @@ ssize_t eSocketBase::openHTTPConnection(int fd, const std::string& getRequest, s
 	return 0;
 }
 
-int eSocketBase::connect(const char *hostname, int port, int timeoutsec)
+int Connect(const char *hostname, int port, int timeoutsec)
 {
 	struct hostent *server=gethostbyname(hostname);
 	if (server == NULL) {
@@ -254,7 +254,7 @@ int eSocketBase::connect(const char *hostname, int port, int timeoutsec)
 	return sd;
 }
 
-int eSocketBase::finishConnect(int fd, int timeoutsec)
+int finishConnect(int fd, int timeoutsec)
 {
 	timeval timeout = {timeoutsec, 0};
 	fd_set wset;
@@ -290,7 +290,7 @@ int eSocketBase::finishConnect(int fd, int timeoutsec)
         return fd;
 }
 
-ssize_t eSocketBase::writeAll(int fd, const void *buf, size_t count)
+ssize_t writeAll(int fd, const void *buf, size_t count)
 {
 	char *ptr_end = (char*)buf + count;
 	size_t tosend = count;
@@ -301,7 +301,7 @@ ssize_t eSocketBase::writeAll(int fd, const void *buf, size_t count)
 		if (retval <= 0)
 		{
 			if (retval == 0 && errno == EINTR) continue;
-			eDebug("eSocketBase::writeAll error (%m)");
+			eDebug("writeAll error (%m)");
 			return retval;
 		}
 		tosend -= retval;
