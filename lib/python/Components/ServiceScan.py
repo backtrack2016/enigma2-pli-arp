@@ -75,9 +75,7 @@ class ServiceScan:
 									tp.FEC_9_10 : "9/10", tp.FEC_None : "NONE" }.get(tp.fec, ""),
 								tp.is_id)
 						else:
-								{ tp.Modulation_Auto : "Auto", tp.Modulation_QPSK : "QPSK",
-									tp.Modulation_8PSK : "8PSK", tp.Modulation_QAM16 : "QAM16" }.get(tp.modulation, ""))
-						tp_text = ("%s %d%c / %d / %s") % ( tp_text, tp.frequency/1000,
+							tp_text = ("%s %d%c / %d / %s") % ( tp_text, tp.frequency/1000,
 								{ tp.Polarisation_Horizontal : 'H', tp.Polarisation_Vertical : 'V', tp.Polarisation_CircularLeft : 'L',
 									tp.Polarisation_CircularRight : 'R' }.get(tp.polarisation, ' '),
 									tp.symbol_rate/1000,
