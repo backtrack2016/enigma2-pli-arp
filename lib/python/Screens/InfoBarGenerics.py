@@ -204,7 +204,7 @@ class InfoBarScreenSaver:
 			eActionMap.getInstance().bindAction('', -maxint - 1, self.keypressScreenSaver)
 
 	def keypressScreenSaver(self, key, flag):
-		if flag == 1:
+		if flag:
 			self.screensaver.hide()
 			self.show()
 			self.ScreenSaverTimerStart()
@@ -547,10 +547,18 @@ class InfoBarChannelSelection:
 		self.switchChannelDown()
 
 	def historyBack(self):
-		self.servicelist.historyBack()
+		self.checkTimeshiftRunning(self.historyBackCheckTimeshiftCallback)
+
+	def historyBackCheckTimeshiftCallback(self, answer):
+		if answer:
+			self.servicelist.historyBack()
 
 	def historyNext(self):
-		self.servicelist.historyNext()
+		self.checkTimeshiftRunning(self.historyNextCheckTimeshiftCallback)
+
+	def historyNextCheckTimeshiftCallback(self, answer):
+		if answer:
+			self.servicelist.historyNext()
 
 	def switchChannelUp(self):
 		self.servicelist.moveUp()
@@ -1066,7 +1074,6 @@ class InfoBarSeek:
 			{
 				iPlayableService.evSeekableStatusChanged: self.__seekableStatusChanged,
 				iPlayableService.evStart: self.__serviceStarted,
-
 				iPlayableService.evEOF: self.__evEOF,
 				iPlayableService.evSOF: self.__evSOF,
 			})
@@ -1102,7 +1109,9 @@ class InfoBarSeek:
 				"seekFwd": (self.seekFwd, _("Seek forward")),
 				"seekFwdManual": (self.seekFwdManual, _("Seek forward (enter time)")),
 				"seekBack": (self.seekBack, _("Seek backward")),
-				"seekBackManual": (self.seekBackManual, _("Seek backward (enter time)"))
+				"seekBackManual": (self.seekBackManual, _("Seek backward (enter time)")),
+				"jumpPreviousMark": (self.jumpPreviousMark, _("Jump to previous marked position")),
+				"jumpNextMark": (self.jumpNextMark, _("Jump to next marked position")),
 			}, prio=-1)
 			# give them a little more priority to win over color buttons
 
@@ -1188,7 +1197,7 @@ class InfoBarSeek:
 
 	def __serviceStarted(self):
 		self.fast_winding_hint_message_showed = False
-		self.seekstate = self.SEEK_STATE_PLAY
+		self.setSeekState(self.SEEK_STATE_PLAY)
 		self.__seekableStatusChanged()
 
 	def setSeekState(self, state):
@@ -2449,7 +2458,7 @@ class InfoBarNotifications:
 			eActionMap.getInstance().unbindAction('', self.keypressNotification)
 
 	def keypressNotification(self, key, flag):
-		if flag == 1:
+		if flag:
 			self.closeNotificationInstantiateDialog()
 
 	def __notificationClosed(self, d):
@@ -2491,6 +2500,7 @@ class InfoBarCueSheetSupport:
 		self.__event_tracker = ServiceEventTracker(screen=self, eventmap=
 			{
 				iPlayableService.evStart: self.__serviceStarted,
+				iPlayableService.evCuesheetChanged: self.downloadCuesheet,
 			})
 
 	def __serviceStarted(self):
@@ -2747,7 +2757,7 @@ class InfoBarTeletextPlugin:
 			print "no teletext plugin found!"
 
 	def startTeletext(self):
-		self.teletext_plugin(session=self.session, service=self.session.nav.getCurrentService())
+		self.teletext_plugin(session=self.session, infobar=self, service=self.session.nav.getCurrentService())
 
 class InfoBarSubtitleSupport(object):
 	def __init__(self):
@@ -2867,7 +2877,7 @@ class InfoBarPowersaver:
 		eActionMap.getInstance().bindAction('', -maxint - 1, self.keypress)
 
 	def keypress(self, key, flag):
-		if flag == 1:
+		if flag:
 			self.restartInactiveTimer()
 
 	def restartInactiveTimer(self):
@@ -2880,7 +2890,7 @@ class InfoBarPowersaver:
 	def inactivityTimeout(self):
 		if config.usage.inactivity_timer_blocktime.value:
 			curtime = localtime(time())
-			if curtime.tm_year != "1970": #check if the current time is valid
+			if curtime.tm_year != 1970: #check if the current time is valid
 				curtime = (curtime.tm_hour, curtime.tm_min, curtime.tm_sec)
 				begintime = tuple(config.usage.inactivity_timer_blocktime_begin.value)
 				endtime = tuple(config.usage.inactivity_timer_blocktime_end.value)
@@ -2952,7 +2962,7 @@ class InfoBarPowersaver:
 		if value < 0:
 			if Screens.Standby.inStandby:
 				print "[InfoBarPowersaver] already in standby now shut down"
-				RecordTimerEntry.TryQuitMainloop(True)
+				RecordTimerEntry.TryQuitMainloop()
 			elif not Screens.Standby.inTryQuitMainloop:
 				print "[InfoBarPowersaver] goto shutdown"
 				self.session.open(Screens.Standby.TryQuitMainloop, 1)

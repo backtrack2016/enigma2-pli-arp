@@ -242,9 +242,17 @@ if ((col&0xFF000000) == 0xFF000000) col = 0xFF000000;
 #endif
 			col^=0xFF000000;
 
-			if (surface->data_phys)
-				if (!gAccel::getInstance()->fill(surface,  area, col))
+#ifdef GPIXMAP_DEBUG
+			Stopwatch s;
+#endif
+			if (surface->data_phys && (area.surface() > 20000))
+				if (!gAccel::getInstance()->fill(surface,  area, col)) {
+#ifdef GPIXMAP_DEBUG
+					s.stop();
+					eDebug("[BLITBENCH] accel fill %dx%d took %u us", area.width(), area.height(), s.elapsed_us());
+#endif
 					continue;
+				}
 
 			for (int y=area.top(); y<area.bottom(); y++)
 			{
@@ -253,6 +261,10 @@ if ((col&0xFF000000) == 0xFF000000) col = 0xFF000000;
 				while (x--)
 					*dst++=col;
 			}
+#ifdef GPIXMAP_DEBUG
+			s.stop();
+			eDebug("[BLITBENCH] cpu fill %dx%d took %u us", area.width(), area.height(), s.elapsed_us());
+#endif
 		} else if (surface->bpp == 16)
 		{
 			__u32 icol = color.argb();
@@ -416,14 +428,12 @@ void gPixmap::blit(const gPixmap &src, const eRect &_pos, const gRegion &clip, i
 					/* Hardware alpha blending is broken on the few
 					 * boxes that support it, so only use it
 					 * when scaling */
-					 if (flag & blitScale)
+					if (flag & blitScale)
 						accel = true;
 					else if (flag & blitAlphaTest) /* Alpha test only on 8-bit */
 						accel = (src.surface->bpp == 8);
 					else
 						accel = false;
-					
-					accel = (flag & (blitScale|blitAlphaTest));
 				}
 				else
 				{
