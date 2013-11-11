@@ -263,9 +263,9 @@ class Satfinder(ScanSetup):
 		self.scan_sat.modulation.setValue(self.transponder[7])
 		self.scan_sat.rolloff.setValue(self.transponder[8])
 		self.scan_sat.pilot.setValue(self.transponder[9])
-		self.scan_sat.is_id.setValue(transponder[10])
-		self.scan_sat.pls_mode.setValue(transponder[11])
-		self.scan_sat.pls_code.setValue(transponder[12])
+		self.scan_sat.is_id.setValue(self.transponder[10])
+		self.scan_sat.pls_mode.setValue(self.transponder[11])
+		self.scan_sat.pls_code.setValue(self.transponder[12])
 
 		self.keyGo()
 
