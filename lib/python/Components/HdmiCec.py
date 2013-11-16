@@ -3,6 +3,10 @@ from config import config, ConfigSelection, ConfigYesNo, ConfigSubsection, Confi
 from enigma import eHdmiCEC, eActionMap
 from Tools.StbHardware import getFPWasTimerWakeup
 from enigma import eTimer
+from Screens import Standby
+from Tools import Directories, Notifications
+from time import time
+import xml.etree.cElementTree
 
 config.hdmicec = ConfigSubsection()
 config.hdmicec.enabled = ConfigYesNo(default = True)
@@ -54,9 +58,23 @@ class HdmiCec:
 		eActionMap.getInstance().bindAction('', -0x7FFFFFF, self.keyEvent)
 		config.hdmicec.volume_forwarding.addNotifier(self.configVolumeForwarding)
 		config.hdmicec.enabled.addNotifier(self.configVolumeForwarding)
-		if config.hdmicec.handle_deepstandby_events.value:
-			if not getFPWasTimerWakeup():
-				self.wakeupMessages()
+		if config.hdmicec.handle_deepstandby_events.value and float(open("/proc/uptime", "r").read().split()[0]) < 120:
+			filename = Directories.resolveFilename(Directories.SCOPE_CONFIG, "timers.xml")
+			try:
+				doc = xml.etree.cElementTree.parse(filename)
+			except:
+				doc = None
+			if doc:
+				root = doc.getroot()
+				for timer in root.findall("timer"):
+					begin = int(timer.get("begin"))
+					disabled = long(timer.get("disabled") or "0")
+					justplay = long(timer.get("justplay") or "0")
+					if begin > time() and begin < time() + 360 and not disabled and not justplay:
+						if Standby.inStandby is None:
+							Notifications.AddNotification(Standby.Standby)
+						return
+			self.wakeupMessages()
 
 	def getPhysicalAddress(self):
 		physicaladdress = eHdmiCEC.getInstance().getPhysicalAddress()
