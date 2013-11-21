@@ -177,38 +177,43 @@ int gAccel::blit(gUnmanagedSurface *dst, gUnmanagedSurface *src, const eRect &p,
 	//		area.left(), area.top(), area.width(), area.height(),
 	//		p.x(), p.y(), p.width(), p.height());
 
-	int src_format = 0;
-	void *data = 0;
-	gUnmanagedSurface tmp;
-
 	if (src->bpp == 32)
-		src_format = 0;
+	{
+                stmfb_accel_blit(
+                        src->data_phys, src->x, src->y, src->stride, 0,
+                        dst->data_phys, dst->x, dst->y, dst->stride,
+                        area.left(), area.top(), area.width(), area.height(),
+                        p.x(), p.y(), p.width(), p.height());
+		return 0;
+	}
 	else if ((src->bpp == 8) && (dst->bpp == 32))
 	{
+		gUnmanagedSurface tmp;
 		tmp.bpp = 32;
 		tmp.stride = area.width() * 4;
 		tmp.y = area.height();
-		src_format = 1;
 		if (accelAlloc(&tmp))
 			return -1;
 
-		__u8 *srcptr=(__u8*)src->data;
+		const __u8 *srcptr=(__u8*)src->data;
 		__u8 *dstptr=(__u8*)tmp.data;
 		__u32 pal[256];
 
-		for (int i=0; i<256; ++i)
 		{
-			if (src->clut.data && (i<src->clut.colors))
-				pal[i]=(src->clut.data[i].a<<24)|(src->clut.data[i].r<<16)|(src->clut.data[i].g<<8)|(src->clut.data[i].b);
-			else
-				pal[i]=0x010101*i;
-			if ((pal[i]&0xFF000000) >= 0xE0000000)
-				pal[i] = 0xFF000000;
-			pal[i]^=0xFF000000;
+			int i = 0;
+			if (src->clut.data)
+				while (i < src->clut.colors)
+				{
+					pal[i] = src->clut.data[i].argb() ^ 0xFF000000;
+					++i;
+				}
+			for(; i != 256; ++i)
+			{
+				pal[i] = (0x010101*i) | 0xFF000000;
+			}
 		}
 		srcptr+=area.left()*src->bypp+area.top()*src->stride;
-
-		for (int y=0; y<area.height(); y++)
+		for (int y = area.height(); y != 0; --y)
 		{
 			int width=area.width();
 			unsigned char *psrc=(unsigned char*)srcptr;
@@ -220,26 +225,16 @@ int gAccel::blit(gUnmanagedSurface *dst, gUnmanagedSurface *src, const eRect &p,
 			srcptr+=src->stride;
 			dstptr+=area.width() * 4;
 		}
-	} else {
-		return -1;
-	}
+                stmfb_accel_blit(
+                        tmp.data_phys, 0, 0, area.width() * 4, 1,
+                        dst->data_phys, dst->x, dst->y, dst->stride,
+                        0, 0, area.width(), area.height(),
+                        p.x(), p.y(), p.width(), p.height());
+                accelFree(&tmp);
+		return 0;
 
-	if (tmp.data_phys)
-	{
-		stmfb_accel_blit(
-			tmp.data_phys, 0, 0, area.width() * 4, src_format,
-			dst->data_phys, dst->x, dst->y, dst->stride,
-			0, 0, area.width(), area.height(),
-			p.x(), p.y(), p.width(), p.height());
-		accelFree(&tmp);
-	} else {
-		stmfb_accel_blit(
-			src->data_phys, src->x, src->y, src->stride, src_format,
-			dst->data_phys, dst->x, dst->y, dst->stride,
-			area.left(), area.top(), area.width(), area.height(),
-			p.x(), p.y(), p.width(), p.height());
 	}
-	return 0;
+	return -1;
 #endif
 #ifdef ATI_ACCEL
 	ati_accel_blit(
