@@ -535,6 +535,8 @@ class InfoBarChannelSelection:
 				"openServiceList": (self.openServiceList, _("Open service list")),
 				"showFavourites": (self.showFavourites, _("show favourites")),
 				"showSatellites": (self.showSatellites, _("show satellites")),
+				"volumeUp": (self._volUp, _("volume up")),
+				"volumeDown": (self._volDown, _("volume down")),
 			})
 
 	def showTvChannelList(self, zap=False):
@@ -621,6 +623,12 @@ class InfoBarChannelSelection:
 	def showSatellites(self):
 		self.session.execDialog(self.servicelist)
 		self.servicelist.showSatellites()
+
+	def _volUp(self):
+		VolumeControl.instance.volUp()
+
+	def _volDown(self):
+		VolumeControl.instance.volDown()
 
 class InfoBarMenu:
 	""" Handles a menu action, to open the (main) menu """
