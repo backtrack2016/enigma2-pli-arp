@@ -12,6 +12,7 @@ from Components.Sources.Boolean import Boolean
 from Components.config import config, ConfigBoolean, ConfigClock, ConfigSubsection, ConfigYesNo, ConfigText
 from Components.SystemInfo import SystemInfo
 from Components.UsageConfig import preferredInstantRecordPath, defaultMoviePath, ConfigSelection
+from Components.VolumeControl import VolumeControl
 from EpgSelection import EPGSelection
 from Plugins.Plugin import PluginDescriptor
 
