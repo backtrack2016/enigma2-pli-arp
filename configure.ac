@@ -227,6 +227,15 @@ data/Magic/infobar/Makefile
 data/Magic/logos/Makefile
 data/Magic/menu/Makefile
 data/Magic/window/Makefile
+data/megaMod/Makefile
+data/megaMod/buttons/Makefile
+data/megaMod/extensions/Makefile
+data/megaMod/fonts/Makefile
+data/megaMod/icons/Makefile
+data/megaMod/menu/Makefile
+data/megaMod/skin_default/Makefile
+data/megaMod/skin_default/buttons/Makefile
+data/megaMod/skin_default/icons/Makefile
 include/Makefile
 lib/Makefile
 lib/base/eenv.cpp
