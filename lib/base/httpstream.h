@@ -4,43 +4,39 @@
 #include <string>
 #include <lib/base/ebase.h>
 #include <lib/base/itssource.h>
-#include <lib/base/wrappers.h>
 #include <lib/base/thread.h>
-#include <lib/base/ringbuffer.h>
 
-class eHttpStream: public iTsSource, public Object
+class eHttpStream: public iTsSource, public Object, public eThread
 {
 	DECLARE_REF(eHttpStream);
 
-
-	RingBuffer m_rbuffer;
-
-	std::string m_url;
 	int m_streamSocket;
-
-	char*  m_scratch;
-	size_t m_scratchSize;
-	size_t m_contentLength;
-	size_t m_contentServed;
+	bool m_isChunked;
 	size_t m_currentChunkSize;
+	char m_partialPkt[188];
+	int  m_partialPktSz;
+	enum { BUSY, CONNECTED, FAILED } m_connectionStatus;
+	char* m_tmp;
+	size_t m_tmpSize;
+	std::string m_streamUrl;
 
-	bool m_tryToReconnect;
-	bool m_chunkedTransfer;
-
-	int openUrl(const std::string& url, std::string &newurl);
-	int _open(const std::string& url);
+	int openUrl(const std::string &url, std::string &newurl);
+	ssize_t syncNextRead(void* buf, ssize_t count);
+	ssize_t httpChunkedRead(void* buf, size_t count);
+	void thread();
 
 	/* iTsSource */
 	ssize_t read(off_t offset, void *buf, size_t count);
 	off_t length();
 	off_t offset();
 	int valid();
-	int close();
+	bool isStream() { return true; };
 
 public:
 	eHttpStream();
 	~eHttpStream();
-	int open(const std::string& url);
+	int open(const char *url);
+	int close();
 };
 
 #endif

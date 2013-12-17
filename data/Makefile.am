@@ -1,4 +1,4 @@
-SUBDIRS = countries fonts extensions keymaps Magic skin_default rc_models
+SUBDIRS = countries fonts extensions keymaps Magic megaMod skin_default rc_models
 
 dist_pkgdata_DATA = \
 	encoding.conf \

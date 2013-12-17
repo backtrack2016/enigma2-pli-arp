@@ -128,7 +128,7 @@ class Satfinder(ScanSetup):
 		self.retune(config_element)
 
 	def retune(self, configElement):
-		returnvalue = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+		returnvalue = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 		satpos = int(self.tuning_sat.value)
 		if self.tuning_type.value == "manual_transponder":
 			if self.scan_sat.system.value == eDVBFrontendParametersSatellite.System_DVB_S2:
@@ -156,7 +156,7 @@ class Satfinder(ScanSetup):
 			if l > self.tuning_transponder.index:
 				transponder = tps[self.tuning_transponder.index]
 				returnvalue = (transponder[1] / 1000, transponder[2] / 1000,
-					transponder[3], transponder[4], 2, satpos, transponder[5], transponder[6], transponder[8], transponder[9], transponder[10])
+					transponder[3], transponder[4], 2, satpos, transponder[5], transponder[6], transponder[8], transponder[9], transponder[10], transponder[11], transponder[12])
 				self.tune(returnvalue)
 
 	def createConfig(self, foo):
@@ -263,6 +263,9 @@ class Satfinder(ScanSetup):
 		self.scan_sat.modulation.setValue(self.transponder[7])
 		self.scan_sat.rolloff.setValue(self.transponder[8])
 		self.scan_sat.pilot.setValue(self.transponder[9])
+		self.scan_sat.is_id.setValue(self.transponder[10])
+		self.scan_sat.pls_mode.setValue(self.transponder[11])
+		self.scan_sat.pls_code.setValue(self.transponder[12])
 
 		self.keyGo()
 

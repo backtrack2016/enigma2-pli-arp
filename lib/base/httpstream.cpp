@@ -3,73 +3,35 @@
 
 #include <lib/base/httpstream.h>
 #include <lib/base/eerror.h>
-
-#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#include <lib/base/wrappers.h>
+#include <sys/socket.h>
 
 DEFINE_REF(eHttpStream);
 
-eHttpStream::eHttpStream() : 
-	 m_rbuffer(1024*1024*3)
-	,m_url("")
-	,m_streamSocket(-1)
-	,m_scratch(NULL)
-	,m_scratchSize(0)
-	,m_contentLength(0)
-	,m_contentServed(0)
+eHttpStream::eHttpStream():
+	m_streamSocket(-1)
+	,m_isChunked(false)
 	,m_currentChunkSize(0)
-	,m_tryToReconnect(false)
-	,m_chunkedTransfer(false)
+	,m_partialPktSz(0)
+	,m_connectionStatus(FAILED)
+	,m_tmp(NULL)
+	,m_tmpSize(32)
 {
+	m_tmp = (char*)malloc(m_tmpSize);
 }
 
 eHttpStream::~eHttpStream()
 {
+	if (m_tmp) free(m_tmp);
+	kill(true);
 	close();
-}
-
-int eHttpStream::open(const std::string& url)
-{
-	m_url = url;
-	return 0;
-}
-
-int eHttpStream::_open(const std::string& url)
-{
-	eDebug("eHttpStream::open()");
-	std::string currenturl(url), newurl;
-
-	for (int i = 0; i < 3; i++)
-	{
-		if (openUrl(currenturl, newurl) < 0)
-		{
-			close();
-			eDebug("%s: connection failed", __FUNCTION__);
-			return -1;
-		}
-		if (newurl.empty())
-		{
-			/* we have a valid stream connection */
-			eDebug("%s: started streaming...", __FUNCTION__);
-			return 0;
-		}
-		/* switch to new url */
-		close();
-		currenturl.swap(newurl);
-		newurl.clear();
-	}
-	eDebug("%s: too many redirects...", __FUNCTION__);
-	/* too many redirect / playlist levels (we accept one redirect + one playlist) */
-	close();
-	return -1;
 }
 
 int eHttpStream::openUrl(const std::string &url, std::string &newurl)
 {
 	int port;
 	std::string hostname;
-	std::string authorizationData;
 	std::string uri = url;
-	std::string request;
 	int result;
 	char proto[100];
 	int statuscode = 0;
@@ -78,21 +40,23 @@ int eHttpStream::openUrl(const std::string &url, std::string &newurl)
 	close();
 
 	int pathindex = uri.find("/", 7);
-	if (pathindex > 0)
+	if (pathindex > 0) 
 	{
 		hostname = uri.substr(7, pathindex - 7);
 		uri = uri.substr(pathindex, uri.length() - pathindex);
-	}
-	else
+	} 
+	else 
 	{
 		hostname = uri.substr(7, uri.length() - 7);
-		uri = "";
+		uri = "/";
 	}
-	int authenticationindex = hostname.find("@");
+	size_t authenticationindex = hostname.find("@");
+	std::string authorizationData;
 	if (authenticationindex > 0)
 	{
 		BIO *mbio, *b64bio, *bio;
 		char *p = (char*)NULL;
+		int length = 0;
 		authorizationData = hostname.substr(0, authenticationindex);
 		hostname = hostname.substr(authenticationindex + 1);
 		mbio = BIO_new(BIO_s_mem());
@@ -100,7 +64,7 @@ int eHttpStream::openUrl(const std::string &url, std::string &newurl)
 		bio = BIO_push(b64bio, mbio);
 		BIO_write(bio, authorizationData.data(), authorizationData.length());
 		BIO_flush(bio);
-		int length = BIO_ctrl(mbio, BIO_CTRL_INFO, 0, (char*)&p);
+		length = BIO_ctrl(mbio, BIO_CTRL_INFO, 0, (char*)&p);
 		authorizationData = "";
 		if (p && length > 0)
 		{
@@ -109,13 +73,13 @@ int eHttpStream::openUrl(const std::string &url, std::string &newurl)
 		}
 		BIO_free_all(bio);
 	}
-	int customportindex = hostname.find(":");
-	if (customportindex > 0)
+	size_t customportindex = hostname.find(":");
+	if (customportindex > 0) 
 	{
 		port = atoi(hostname.substr(customportindex + 1, hostname.length() - customportindex - 1).c_str());
 		hostname = hostname.substr(0, customportindex);
-	}
-	else if (customportindex == 0)
+	} 
+	else if (customportindex == 0) 
 	{
 		port = atoi(hostname.substr(1, hostname.length() - 1).c_str());
 		hostname = "localhost";
@@ -124,35 +88,31 @@ int eHttpStream::openUrl(const std::string &url, std::string &newurl)
 	{
 		port = 80;
 	}
+	m_streamSocket = Connect(hostname.c_str(), port, 10);
+	if (m_streamSocket < 0)
+	{
+		eDebug("%s: could not connect : %s", __FUNCTION__, strerror(errno));
+		close();
+		return -1;
+	}
 
-	m_streamSocket = Connect(hostname.c_str(), port, 100);
-	if (m_streamSocket < 0) return -1;
-
-	request = "GET ";
+	std::string request = "GET ";
 	request.append(uri).append(" HTTP/1.1\r\n");
 	request.append("Host: ").append(hostname).append("\r\n");
-	if (authorizationData.length())
+	if (authorizationData != "")
 	{
 		request.append("Authorization: Basic ").append(authorizationData).append("\r\n");
 	}
 	request.append("Accept: */*\r\n");
-	if (!m_tryToReconnect) {
-		m_contentServed = 0;
-		request.append("Range: bytes=0-\r\n");
-	} else {
-		char buffer [33];
-		sprintf(buffer, "%d", m_contentServed);
-		request.append("Range: bytes=");
-		request.append(buffer);
-		request.append("-\r\n");
-
-	}	
-	request.append("Connection: close\r\n");
-	request.append("\r\n");
+	request.append("Connection: close\r\n\r\n");
 
 	std::string hdr;
 	result = openHTTPConnection(m_streamSocket, request, hdr);
-	if (result < 0) return -1;
+	if (result < 0){
+		eDebug("%s: did not receive http header : %s", __FUNCTION__, strerror(errno));
+		close();
+		return -1;
+	}
 
 	size_t pos = hdr.find("\n");
 	const std::string& httpStatus = (pos == std::string::npos)? hdr: hdr.substr(0, pos);
@@ -161,6 +121,8 @@ int eHttpStream::openUrl(const std::string &url, std::string &newurl)
 	if (result != 3 || (statuscode != 200 && statuscode != 206 && statuscode != 302))
 	{
 		eDebug("%s: wrong http response code: %d", __FUNCTION__, statuscode);
+		eDebug("%s: http response header: %s", __FUNCTION__, hdr.c_str());
+		close();
 		return -1;
 	}
 
@@ -177,7 +139,8 @@ int eHttpStream::openUrl(const std::string &url, std::string &newurl)
 		}
 	}
 
-	m_chunkedTransfer = (hdr.find("Transfer-Encoding: chunked") != std::string::npos);
+	m_isChunked = (hdr.find("Transfer-Encoding: chunked") != std::string::npos);
+/*
 	pos = hdr.find("Content-Length:");
 	if (pos != std::string::npos) {
 		std::string clen = hdr.substr(pos+strlen("Content-Length:"));
@@ -187,7 +150,7 @@ int eHttpStream::openUrl(const std::string &url, std::string &newurl)
 		}
 		m_contentLength = strtol(clen.c_str(), NULL, 16);
 	}
-
+*/
 	pos = hdr.find("Content-Type:");
 	if (pos != std::string::npos) {
 		hdr = hdr.substr(pos);
@@ -206,141 +169,174 @@ int eHttpStream::openUrl(const std::string &url, std::string &newurl)
 				pos = hdr.find("\n");
 				if (pos != std::string::npos) newurl = newurl.substr(0, pos);
 				eDebug("%s: playlist entry: %s", __FUNCTION__, newurl.c_str());
-				return 0;
 			}
 		}
 	}
 
-	if (m_chunkedTransfer) {
-		eDebug("%s: chunked transfer enabled", __FUNCTION__);
-		if (m_scratch == NULL) { m_scratchSize=64; m_scratch=(char*)malloc(m_scratchSize);}
-		int c = readLine(m_streamSocket, &m_scratch, &m_scratchSize);
-		if (c <=0) return -1;
-		m_currentChunkSize = strtol(m_scratch, NULL, 16);
-		eDebug("%s: chunked transfer enabled, fisrt chunk size %i", __FUNCTION__, m_currentChunkSize);
-	}
-
-	m_rbuffer.reset();
-	ssize_t toWrite = m_rbuffer.availableToWritePtr();
-	if (toWrite > 0) {
-		if (m_chunkedTransfer) toWrite = MIN(toWrite, m_currentChunkSize);
-		toWrite = timedRead(m_streamSocket, m_rbuffer.ptr(), toWrite, 2000, 50);
-		if (toWrite > 0) {
-			eDebug("%s: writting %i bytes to the ring buffer", __FUNCTION__, toWrite);
-                        ssize_t skipBytes = 0;
-                        char* ptr = m_rbuffer.ptr();
-                        while (skipBytes <= toWrite && ptr[skipBytes] != 0x47) ++skipBytes;
-			m_rbuffer.ptrWriteCommit(toWrite);
-			m_rbuffer.skip(skipBytes);
-
-			if (m_chunkedTransfer) {
-				m_currentChunkSize -= toWrite;
-                                if (m_currentChunkSize==0){
-                                        int rc = readLine(m_streamSocket, &m_scratch, &m_scratchSize);
-                                        eDebug("%s: reading the end of the chunk rc(%i)(%s)", __FUNCTION__, rc, m_scratch);
-                                }
-			}
-		}
-	}
+	// kernel will normally double this value, if it does not exceed max configured
+	int sndbuf = 1024*1024*2;
+	//try and set a bigger receive buffer, ask OS to do some buffering for us
+	setsockopt(m_streamSocket, SOL_SOCKET, SO_RCVBUF, &sndbuf, sizeof sndbuf);  
 
 	return 0;
 }
 
+int eHttpStream::open(const char *url)
+{
+	m_streamUrl = url;
+	/*
+	 * We're in gui thread context here, and establishing
+	 * a connection might block for up to 10 seconds.
+	 * Spawn a new thread to establish the connection.
+	 */
+	m_connectionStatus = BUSY;
+	eDebug("eHttpStream::Start thread");
+	run();
+	return 0;
+}
+
+void eHttpStream::thread()
+{
+	hasStarted();
+	std::string currenturl(m_streamUrl), newurl;
+
+	for (unsigned int i = 0; i < 3; i++)
+	{
+		if (openUrl(currenturl, newurl) < 0)
+		{
+			/* connection failed */
+			eDebug("%s: connection failed", __FUNCTION__);
+			m_connectionStatus = FAILED;
+			return;
+		}
+		if (newurl.empty())
+		{
+			/* we have a valid stream connection */
+			eDebug("%s: started streaming...", __FUNCTION__);
+			m_connectionStatus = CONNECTED;
+			return;
+		}
+		/* switch to new url */
+		close();
+		currenturl.swap(newurl);
+		newurl.clear();
+	}
+	/* too many redirect / playlist levels (we accept one redirect + one playlist) */
+	eDebug("%s: too many redirects...", __FUNCTION__);
+	m_connectionStatus = FAILED;
+	return;
+}
+
 int eHttpStream::close()
 {
-	eDebug(__FUNCTION__);
 	int retval = -1;
 	if (m_streamSocket >= 0)
 	{
 		retval = ::close(m_streamSocket);
 		m_streamSocket = -1;
 	}
-	// no reconnect attempts after close
-	m_tryToReconnect = false;
 	return retval;
 }
 
-ssize_t eHttpStream::read(off_t offset, void *buf, size_t count)
+ssize_t eHttpStream::syncNextRead(void* buf, ssize_t length)
 {
-	if (m_streamSocket < 0) {
-		eDebug("%s: not valid fd", __FUNCTION__);
-		if (_open(m_url) < 0) return -1;
+	unsigned char* b = (unsigned char*)buf;
+	unsigned char* e = b + length;
+	m_partialPktSz = 0;
+
+	if (*(char*)buf != 0x47)
+	{
+		// get the head position of the last packet
+		while (e != b && *e != 0x47) e--;
+	}
+	else
+	{
+		e -= length%188;
 	}
 
-	bool outBufferHasData = false;
-	if (m_rbuffer.availableToRead() >= count) {
-        	m_contentServed += m_rbuffer.read((char*)buf, (count - (count%188)));
-		outBufferHasData = true;
+	if (e != b &&  e != (b + length))
+	{
+		m_partialPktSz = (b + length) - e;
+		// if packet is read partially save it to align the next read
+		if (m_partialPktSz > 0 && m_partialPktSz < sizeof(m_partialPkt))
+		{
+			memcpy(m_partialPkt, e, m_partialPktSz);
+		}
+	} 
+	return (length - m_partialPktSz);
+}
+
+ssize_t eHttpStream::httpChunkedRead(void* buf, size_t count)
+{
+	ssize_t ret = -1;
+	size_t total_read = m_partialPktSz;
+
+	// write partial packet from the previous read
+	if (m_partialPktSz > 0)
+	{
+		memcpy(buf, m_partialPkt, m_partialPktSz);
+		m_partialPktSz = 0;
 	}
-	
 
-	int read2Chunks=2;
-READAGAIN:
-	ssize_t toWrite = m_rbuffer.availableToWritePtr();
-	eDebug("%s: Ring buffer available to write %i", __FUNCTION__, toWrite);
-	if (toWrite > 0) {
-
-		if (m_chunkedTransfer){
-			if (m_currentChunkSize==0) {
-				int c = readLine(m_streamSocket, &m_scratch, &m_scratchSize);
-				if (c <= 0) return -1;
-				m_currentChunkSize = strtol(m_scratch, NULL, 16);
+	if (m_isChunked)
+	{
+		while (total_read < count)
+		{
+			if (m_currentChunkSize==0)
+			{
+				do 
+				{
+					ret = readLine(m_streamSocket, &m_tmp, &m_tmpSize);
+					if (ret < 0) return -1;
+				}while(!*m_tmp && ret > 0); /* skip CR LF from last chunk */
+				if (ret == 0) break;
+				m_currentChunkSize = strtol(m_tmp, NULL, 16);
 				if (m_currentChunkSize == 0) return -1;
 			}
-			toWrite = MIN(toWrite, m_currentChunkSize);
-		}
-		if (outBufferHasData || m_rbuffer.availableToRead() >= (1024*6) || m_rbuffer.availableToRead() >= count) {
-			//do not starve the reader if we have enough data to read and there is nothing on the socket
-			toWrite = timedRead(m_streamSocket, m_rbuffer.ptr(), toWrite, 0, 0);
-		} else {
-			toWrite = timedRead(m_streamSocket, m_rbuffer.ptr(), toWrite, 3000, 500);
-		}
-		if (toWrite > 0) {
-			m_rbuffer.ptrWriteCommit(toWrite);
-			if (m_chunkedTransfer) {
-                                --read2Chunks;
-				m_currentChunkSize -= toWrite;
-				if (m_currentChunkSize==0){
-					readLine(m_streamSocket, &m_scratch, &m_scratchSize);
-				} else if (read2Chunks > 0) {
-					goto READAGAIN;
-				}
-			}
-			//try to reconnect on next failure
-			m_tryToReconnect = true;
-		} else if (!outBufferHasData && m_rbuffer.availableToRead() < 188) {
-			eDebug("%s: failed to read from the socket errno(%i) timedRead(%i)...", __FUNCTION__, errno, toWrite);
-			// we failed to read and there is nothing to play, try to reconnect?
-			// for some reason select() returns EAGAIN sometimes
-			// do not reconnect if sream has a content length and all lentgh is served
-			if ((toWrite <= 0 || errno == EAGAIN) && m_tryToReconnect && (!m_contentLength || m_contentLength > m_contentServed)) {
-				m_tryToReconnect = false;
-				if (_open(m_url) == 0) {
-					goto READAGAIN;
-				}
-			} else if (toWrite == 0 && (!m_contentLength || m_contentLength > m_contentServed)) {
-				errno = EAGAIN; //timeout
-			} else close();
 
-			eDebug("%s: timed out", __FUNCTION__);
-			return -1 ;
+			size_t to_read = count - total_read;
+			if (m_currentChunkSize < to_read) to_read = m_currentChunkSize;
+
+			// do not wait too long if we have something in the buffer already
+			ret = timedRead(m_streamSocket, ((char*)buf)+total_read, to_read, ((total_read)? 100:5000), 100);
+			if (ret <=0) break;
+			m_currentChunkSize -= ret;
+			total_read += ret;
 		}
+		if (total_read > 0) ret = total_read;
+	}
+	else
+	{
+		ret = timedRead(m_streamSocket, ((char*)buf)+total_read, count-total_read, 5000, 100);
+		if (ret > 0) ret+=total_read;
 	}
 
-	if (!outBufferHasData) {
-		ssize_t toRead = MIN(count, m_rbuffer.availableToRead());
-		toRead = m_rbuffer.read((char*)buf, (toRead - (toRead%188)));
-		m_contentServed += toRead;
-		return toRead;
-	} else {
-		return (count - (count%188));
+	if (ret > 0)
+	{
+		ret = syncNextRead(buf, ret);
 	}
+	return ret;
+}
+ 
+ssize_t eHttpStream::read(off_t offset, void *buf, size_t count)
+{
+	if (m_connectionStatus == CONNECTED)
+	{
+		return httpChunkedRead(buf, count);
+	}
+	else if (m_connectionStatus == BUSY)
+	{
+		return 0;
+	}
+
+	return -1;
 }
 
 int eHttpStream::valid()
 {
-	return 1;
-//	return (m_streamSocket != -1);
+	if (m_connectionStatus == BUSY)
+		return 0;
+	return m_streamSocket >= 0;
 }
 
 off_t eHttpStream::length()
@@ -352,4 +348,3 @@ off_t eHttpStream::offset()
 {
 	return 0;
 }
-
