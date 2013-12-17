@@ -275,9 +275,15 @@ class InfoBarShowHide(InfoBarScreenSaver):
 	def keyHide(self):
 		if self.__state == self.STATE_SHOWN:
 			self.hide()
-		else:
-			if self.session.pipshown:
-				self.showPiP()
+		elif self.session.pipshown and "popup" in config.usage.pip_hideOnExit.value:
+			if config.usage.pip_hideOnExit.value == "popup":
+				self.session.openWithCallback(self.hidePipOnExitCallback, MessageBox, _("Disable Picture in Picture"), simple=True)
+			else:
+				self.hidePipOnExitCallback(True)
+
+	def hidePipOnExitCallback(self, answer):
+		if answer == True:
+			self.showPiP()
 
 	def connectShowHideNotifier(self, fnc):
 		if not fnc in self.onShowHideNotifiers:
@@ -489,6 +495,7 @@ class InfoBarNumberZap:
 				self.servicelist.enterPath(bouquet)
 			self.servicelist.setCurrentSelection(service) #select the service in servicelist
 			self.servicelist.zap(enable_pipzap = True)
+			self.servicelist.correctChannelNumber()
 			self.servicelist.startRoot = None
 
 	def zapToNumber(self, number):
@@ -549,11 +556,13 @@ class InfoBarChannelSelection:
 			self.servicelist.historyNext()
 
 	def switchChannelUp(self):
-		self.servicelist.moveUp()
+		if "keep" not in config.usage.servicelist_cursor_behavior.value:
+			self.servicelist.moveUp()
 		self.session.execDialog(self.servicelist)
 
 	def switchChannelDown(self):
-		self.servicelist.moveDown()
+		if "keep" not in config.usage.servicelist_cursor_behavior.value:
+			self.servicelist.moveDown()
 		self.session.execDialog(self.servicelist)
 
 	def openServiceList(self):
@@ -1088,8 +1097,8 @@ class InfoBarSeek:
 				"seekFwdManual": (self.seekFwdManual, _("Seek forward (enter time)")),
 				"seekBack": (self.seekBack, _("Seek backward")),
 				"seekBackManual": (self.seekBackManual, _("Seek backward (enter time)")),
-				"jumpPreviousMark": (self.jumpPreviousMark, _("Jump to previous marked position")),
-				"jumpNextMark": (self.jumpNextMark, _("Jump to next marked position")),
+				"jumpPreviousMark": (self.seekPreviousMark, _("Jump to previous marked position")),
+				"jumpNextMark": (self.seekNextMark, _("Jump to next marked position")),
 			}, prio=-1)
 			# give them a little more priority to win over color buttons
 
@@ -1417,6 +1426,15 @@ class InfoBarSeek:
 	def __evSOF(self):
 		self.setSeekState(self.SEEK_STATE_PLAY)
 		self.doSeek(0)
+
+	# This is needed, because some Mediaplayer use InfoBarSeek but not InfoBarCueSheetSupport
+	def seekPreviousMark(self):
+		if isinstance(self, InfoBarCueSheetSupport):
+			self.jumpPreviousMark()
+
+	def seekNextMark(self):
+		if isinstance(self, InfoBarCueSheetSupport):
+			self.jumpNextMark()
 
 from Screens.PVRState import PVRState, TimeshiftState
 
@@ -1905,7 +1923,6 @@ class InfoBarPiP:
 			currentServicePath = self.servicelist.getCurrentServicePath()
 			self.servicelist.setCurrentServicePath(self.session.pip.servicePath)	
 			self.session.pip.playService(swapservice)
-			self.session.nav.stopService() # stop portal
 			self.session.nav.playService(pipref) # start subservice
 			self.session.pip.servicePath = currentServicePath
 			if self.servicelist.dopipzap:
@@ -2735,7 +2752,7 @@ class InfoBarTeletextPlugin:
 			print "no teletext plugin found!"
 
 	def startTeletext(self):
-		self.teletext_plugin(session=self.session, infobar=self, service=self.session.nav.getCurrentService())
+		self.teletext_plugin(session=self.session, service=self.session.nav.getCurrentService())
 
 class InfoBarSubtitleSupport(object):
 	def __init__(self):
@@ -2843,7 +2860,8 @@ class InfoBarServiceErrorPopupSupport:
 
 			if error:
 				self.closeNotificationInstantiateDialog()
-				Notifications.AddPopup(text = error, type = MessageBox.TYPE_ERROR, timeout = 5, id = "ZapError")
+				if hasattr(self, "dishDialog") and not self.dishDialog.dishState():
+					Notifications.AddPopup(text = error, type = MessageBox.TYPE_ERROR, timeout = 5, id = "ZapError")
 
 class InfoBarPowersaver:
 	def __init__(self):
