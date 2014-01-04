@@ -618,7 +618,7 @@ void eDVBDB::saveServicelist(const char *file)
 			fprintf(f, "\tt %d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d\n",
 				ter.frequency, bandwidth, ter.code_rate_HP,
 				ter.code_rate_LP, ter.modulation, ter.transmission_mode,
-				ter.guard_interval, ter.hierarchy, ter.inversion, flags, ter.system, ter.plpid);
+				ter.guard_interval, ter.hierarchy, ter.inversion, flags, ter.system, ter.plp_id);
 		}
 		else if (!ch.m_frontendParameters->getDVBC(cab))
 		{
@@ -861,6 +861,7 @@ int eDVBDB::renumberBouquet(eBouquet &bouquet, int startChannelNum)
 		if ( tmp.flags&eServiceReference::canDescent )
 		{
 			size_t pos = tmp.path.rfind('/');
+			char buf[256];
 			std::string path = tmp.path;
 			if ( pos != std::string::npos )
 				path.erase(0, pos+1);
