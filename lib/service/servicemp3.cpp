@@ -934,6 +934,7 @@ RESULT eServiceMP3::start()
 	{
 		player->output->Command(player, OUTPUT_OPEN, NULL);
 		player->playback->Command(player, PLAYBACK_PLAY, NULL);
+		updateEpgCacheNowNext();
 	}
 #endif
 
@@ -1321,6 +1322,8 @@ RESULT eServiceMP3::getPlayPosition(pts_t &pts)
 	unsigned long long int vpts = 0;
 	if (player && player->playback)
 		player->playback->Command(player, PLAYBACK_PTS, &vpts);
+	if (vpts<=0)
+		return -1;
 
 	/* len is in nanoseconds. we have 90 000 pts per second. */
 	pts = vpts>0?vpts:pts;;
@@ -2861,8 +2864,8 @@ RESULT eServiceMP3::enableSubtitles(iSubtitleUser *user, struct SubtitleTrack &t
 	{
 #ifndef ENABLE_LIBEPLAYER3
 		g_object_set (G_OBJECT (m_gst_playbin), "current-text", -1, NULL);
-		m_subtitle_sync_timer->stop();
 #endif
+		m_subtitle_sync_timer->stop();
 		m_subtitle_pages.clear();
 		m_prev_decoder_time = -1;
 		m_decoder_time_valid_state = 0;
@@ -2874,9 +2877,9 @@ RESULT eServiceMP3::enableSubtitles(iSubtitleUser *user, struct SubtitleTrack &t
 
 		m_subtitle_widget = user;
 
+#ifndef ENABLE_LIBEPLAYER3
 		eDebug ("eServiceMP3::switched to subtitle stream %i", m_currentSubtitleStream);
 
-#ifndef ENABLE_LIBEPLAYER3
 #ifdef GSTREAMER_SUBTITLE_SYNC_MODE_BUG
 		/*
 		 * when we're running the subsink in sync=false mode,
@@ -2901,8 +2904,8 @@ RESULT eServiceMP3::disableSubtitles()
 	m_currentSubtitleStream = -1;
 	m_cachedSubtitleStream = m_currentSubtitleStream;
 	g_object_set (G_OBJECT (m_gst_playbin), "current-text", m_currentSubtitleStream, NULL);
-	m_subtitle_sync_timer->stop();
 #endif
+	m_subtitle_sync_timer->stop();
 	m_subtitle_pages.clear();
 	m_prev_decoder_time = -1;
 	m_decoder_time_valid_state = 0;
