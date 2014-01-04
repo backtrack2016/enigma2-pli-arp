@@ -1,5 +1,6 @@
 from enigma import eComponentScan, iDVBFrontend
 from Components.NimManager import nimmanager as nimmgr
+from Components.Converter.ChannelNumbers import channelnumbers
 
 class ServiceScan:
 
@@ -24,6 +25,7 @@ class ServiceScan:
 
 				if errcode == 0:
 					self.state = self.Done
+					self.servicelist.listAll()
 				else:
 					self.state = self.Error
 					self.errorcode = errcode
@@ -56,7 +58,7 @@ class ServiceScan:
 							h = _("W")
 						else:
 							h = _("E")
-						if sat_name.find("%d.%d" % (orb_pos/10, orb_pos%10)) != -1:
+						if ("%d.%d" % (orb_pos/10, orb_pos%10)) in sat_name:
 							network = sat_name
 						else:
 							network = ("%s %d.%d %s") % (sat_name, orb_pos / 10, orb_pos % 10, h)
@@ -90,8 +92,12 @@ class ServiceScan:
 					elif tp_type == iDVBFrontend.feTerrestrial:
 						network = _("Terrestrial")
 						tp = transponder.getDVBT()
+						channel = channelnumbers.getChannelNumber(tp.frequency, self.scanList[self.run]["feid"])
+						if channel:
+							channel = _("CH") + "%s " % channel
+						freqMHz = "%0.1f MHz" % (tp.frequency/1000000.)
 						if tp.plp_id > -1 and tp.system == tp.System_DVB_T2:
-							tp_text = ("%s %s %d %s PLP %d") %( 
+							tp_text = ("%s %s %s %s PLP %d") %( 
 								{ 
 									tp.System_DVB_T : "DVB-T",
 									tp.System_DVB_T2 : "DVB-T2"
@@ -100,8 +106,8 @@ class ServiceScan:
 									tp.Modulation_QPSK : "QPSK",
 									tp.Modulation_QAM16 : "QAM16", tp.Modulation_QAM64 : "QAM64",
 									tp.Modulation_Auto : "AUTO", tp.Modulation_QAM256 : "QAM256"
-								}.get(tp.modulation, ""),
-								tp.frequency / 1000,
+								}.get(tp.modulation,""),
+								"%s%s" % (channel, freqMHz.replace(".0","")),
 								{
 									tp.Bandwidth_8MHz : "Bw 8MHz", tp.Bandwidth_7MHz : "Bw 7MHz", tp.Bandwidth_6MHz : "Bw 6MHz",
 									tp.Bandwidth_Auto : "Bw Auto", tp.Bandwidth_5MHz : "Bw 5MHz",
@@ -109,7 +115,7 @@ class ServiceScan:
 								}.get(tp.bandwidth, ""),
 								tp.plp_id)
 						else:
-							tp_text = ("%s %s %d %s") %( 
+							tp_text = ("%s %s %s %s") %( 
 								{ 
 									tp.System_DVB_T : "DVB-T",
 									tp.System_DVB_T2 : "DVB-T2"
@@ -119,7 +125,7 @@ class ServiceScan:
 									tp.Modulation_QAM16 : "QAM16", tp.Modulation_QAM64 : "QAM64",
 									tp.Modulation_Auto : "AUTO", tp.Modulation_QAM256 : "QAM256"
 								}.get(tp.modulation, ""),
-								tp.frequency / 1000,
+								"%s%s" % (channel, freqMHz.replace(".0","")),
 								{
 									tp.Bandwidth_8MHz : "Bw 8MHz", tp.Bandwidth_7MHz : "Bw 7MHz", tp.Bandwidth_6MHz : "Bw 6MHz",
 									tp.Bandwidth_Auto : "Bw Auto", tp.Bandwidth_5MHz : "Bw 5MHz",
@@ -203,8 +209,9 @@ class ServiceScan:
 
 	def newService(self):
 		newServiceName = self.scan.getLastServiceName()
-		self.servicelist.addItem(newServiceName)
-		self.lcd_summary.updateService(self.scan.getLastServiceName())
+		newServiceRef = self.scan.getLastServiceRef()
+		self.servicelist.addItem((newServiceName, newServiceRef))
+		self.lcd_summary.updateService(newServiceName)
 
 	def destroy(self):
 		pass
