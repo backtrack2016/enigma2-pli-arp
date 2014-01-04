@@ -42,4 +42,5 @@ dist_install_DATA = \
 	standby_restart_list.png \
 	system.png \
 	tv.png \
+	tv1.png \
 	web_browser.png

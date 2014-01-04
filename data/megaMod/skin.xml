@@ -180,7 +180,7 @@
   <screen name="Menu" position="0,0" size="1280,720" title="Main menu" backgroundColor="transparent" flags="wfNoBorder">
     <ePixmap position="0,0" zPosition="-1" size="1280,720" pixmap="megaMod/menu-bg.png" />
     <widget source="title" render="Label" zPosition="1" position="60,34" size="600,26" halign="center" font="Regular;24" foregroundColor="white" backgroundColor="black" transparent="1" />
-    <widget source="menu" render="Listbox" backgroundColor="background" selectionPixmap="megaMod/buttons/selection3.png" enableWrapAround="1" position="30,90" zPosition="2" size="560,480" scrollbarMode="showOnDemand" transparent="1" itemHeight="40">
+    <widget source="menu" render="Listbox" backgroundColor="background" selectionPixmap="megaMod/buttons/selection3.png" alphatest="blend" enableWrapAround="1" position="30,90" zPosition="2" size="560,480" scrollbarMode="showOnDemand" transparent="1" itemHeight="40">
       <convert type="StringList" />
     </widget>
   </screen>
@@ -188,7 +188,7 @@
   <screen name="menu_mainmenu" position="0,0" size="1280,720" title="Menu" backgroundColor="transparent" flags="wfNoBorder">
     <ePixmap position="0,0" zPosition="-1" size="1280,720" pixmap="megaMod/menu-bg.png" />
     <widget source="title" render="Label" zPosition="1" position="60,34" size="600,26" halign="center" font="Regular;24" foregroundColor="white" backgroundColor="black" transparent="1" />
-    <widget source="menu" render="Listbox" backgroundColor="background" selectionPixmap="megaMod/buttons/selection3.png" enableWrapAround="1" position="30,90" zPosition="2" size="560,480" scrollbarMode="showOnDemand" transparent="1" itemHeight="40">
+    <widget source="menu" render="Listbox" backgroundColor="background" selectionPixmap="megaMod/buttons/selection3.png" enableWrapAround="1" position="33,95" zPosition="2" size="560,480" scrollbarMode="showOnDemand" transparent="1" itemHeight="40">
       <convert type="TemplatedMultiContent">
 				{"template": [
 					MultiContentEntryText(pos = (35, 5), size = (520, 40), flags = RT_HALIGN_LEFT, text = 0),
@@ -728,33 +728,33 @@
   </screen>
   <!-- Channel selection - TV -->
   <screen name="ChannelSelection" position="0,0" size="1280,720" title="Channel Selection" backgroundColor="transparent" flags="wfNoBorder">
-    <ePixmap position="0,0" zPosition="-1" size="1280,720" pixmap="megaMod/panel.png" />
+    <ePixmap position="8,center" zPosition="-1" size="1280,720" pixmap="megaMod/panel.png" />
     <widget source="Title" render="Label" zPosition="1" position="60,37" size="500,24" halign="center" font="Regular;22" foregroundColor="white" transparent="1" backgroundColor="transpBlack" />
-    <eLabel text="Menu - Info" position="1020,37" size="200,22" font="Regular;22" halign="right" foregroundColor="un404040" backgroundColor="black" zPosition="0" transparent="1" />
+    <eLabel text="Menu - Info" position="1075,33" size="150,22" font="Regular;22" halign="right" foregroundColor="un404040" backgroundColor="black" zPosition="0" transparent="1" />
     <!-- Lista Canali -->
     <widget name="list" position="50,90" size="538,496" scrollbarMode="showOnDemand" foregroundColorServiceNotAvail="#666666" zPosition="3" serviceItemHeight="31" serviceNumberFont="Regular;23" serviceNameFont="Regular;23" serviceInfoFont="Regular;22" colorServiceDescription="#a1daff" colorServiceDescriptionSelected="white" picServiceEventProgressbar="lust/bars/pl.png" selectionPixmap="megaMod/buttons/slider30.png" transparent="1" />
     <!-- Event Time -->
-    <widget source="ServiceEvent" render="Label" position="770,415" size="100,26" zPosition="2" font="Regular;19" foregroundColor="white" backgroundColor="black" transparent="1">
+    <widget source="ServiceEvent" render="Label" position="771,355" size="100,26" zPosition="2" font="Regular;19" foregroundColor="white" backgroundColor="black" transparent="1">
       <convert type="EventTime">StartTime</convert>
       <convert type="ClockToText">Default</convert>
     </widget>
-    <widget source="ServiceEvent" render="Label" position="825,415" zPosition="1" size="70,26" font="Regular;19" foregroundColor="bluette" backgroundColor="black" halign="right" transparent="1">
+    <widget source="ServiceEvent" render="Label" position="825,355" zPosition="1" size="70,26" font="Regular;19" foregroundColor="bluette" backgroundColor="black" halign="right" transparent="1">
       <convert type="EventTime">EndTime</convert>
       <convert type="ClockToText">Default</convert>
     </widget>
     <!-- Nome Canale - Service Name -->
-    <widget source="ServiceEvent" render="Label" position="910,416" zPosition="1" size="330,26" font="Regular; 22" foregroundColor="un808080" backgroundColor="black" transparent="1">
+    <widget source="ServiceEvent" render="Label" position="900,355" zPosition="1" size="330,26" font="Regular; 22" foregroundColor="un808080" backgroundColor="black" transparent="1">
       <convert type="ServiceName">Name</convert>
     </widget>
-    <widget source="ServiceEvent" render="Label" position="635,443" size="600,26" zPosition="2" halign="center" font="Regular; 22" foregroundColor="white" backgroundColor="transpBlack" transparent="1">
+    <widget source="ServiceEvent" render="Label" position="630,381" size="600,26" zPosition="2" halign="center" font="Regular; 22" foregroundColor="white" backgroundColor="transpBlack" transparent="1">
       <convert type="EventName">Name</convert>
     </widget>
-    <widget source="ServiceEvent" render="Label" position="625,470" zPosition="2" halign="center" size="605,175" font="Regular; 22" transparent="1" foregroundColor="una1daff" backgroundColor="transpBlack">
+    <widget source="ServiceEvent" render="Label" position="630,407" zPosition="2" halign="center" size="600,235" font="Regular; 22" transparent="1" foregroundColor="una1daff" backgroundColor="transpBlack">
       <convert type="EventName">ExtendedDescription</convert>
     </widget>
     <!-- ProgressBar -->
-    <ePixmap position="635,418" size="120,15" pixmap="megaMod/icons/ch_progressbw.png" alphatest="blend" transparent="1" zPosition="1" />
-    <widget source="ServiceEvent" render="Progress" pixmap="megaMod/icons/ch_progresscl.png" position="636,418" size="119,13" zPosition="2" backgroundColor="black" transparent="1">
+    <ePixmap position="635,360" size="120,15" pixmap="megaMod/icons/ch_progressbw.png" alphatest="blend" transparent="1" zPosition="1" />
+    <widget source="ServiceEvent" render="Progress" pixmap="megaMod/icons/ch_progresscl.png" position="636,361" size="119,14" zPosition="2" backgroundColor="black" transparent="1">
       <convert type="EventTime">Progress</convert>
     </widget>
     <eLabel text="Rec" position="1030,666" size="142,22" font="Regular;20" halign="right" foregroundColor="un505050" backgroundColor="black" zPosition="0" transparent="1" />
@@ -763,25 +763,25 @@
       <convert type="ConditionalShowHide">Blink</convert>
     </widget>
     <!-- Widget Pig -->
-    <ePixmap position="635,90" size="600,325" pixmap="megaMod/menu/tv.png" zPosition="4" alphatest="blend" />
-    <widget source="session.VideoPicture" render="Pig" position="640,95" size="570,310" zPosition="2" backgroundColor="undf0b1300" />
-    <widget source="session.CurrentService" render="Label" position="700,37" size="460,26" zPosition="5" font="Regular;22" halign="center" noWrap="1" transparent="1" foregroundColor="white" backgroundColor="background">
+    <ePixmap position="696,85" size="472,260" pixmap="megaMod/menu/tv1.png" zPosition="4" alphatest="blend" />
+    <widget source="session.VideoPicture" render="Pig" position="697,85" size="467,254" zPosition="2" backgroundColor="undf0b1300" />
+    <widget source="session.CurrentService" render="Label" position="651,31" size="460,26" zPosition="5" font="Regular;22" halign="center" noWrap="1" transparent="1" foregroundColor="white" backgroundColor="background">
       <convert type="ServiceName">Name</convert>
     </widget>
     <!-- Event Now -->
-    <widget source="session.Event_Now" render="Label" position="645,382" size="90,26" zPosition="5" font="Regular;20" foregroundColor="white" backgroundColor="black" transparent="1">
+    <widget source="session.Event_Now" render="Label" position="698,318" size="90,23" zPosition="5" font="Regular;20" foregroundColor="white" backgroundColor="black" transparent="1">
       <convert type="EventTime">StartTime</convert>
       <convert type="ClockToText">Default</convert>
     </widget>
-    <widget source="session.Event_Now" render="Label" position="705,382" size="410,26" zPosition="5" halign="center" font="Regular;20" foregroundColor="white" backgroundColor="black" transparent="1" noWrap="1">
+    <widget source="session.Event_Now" render="Label" position="756,318" size="370,23" zPosition="5" halign="center" font="Regular;20" foregroundColor="white" backgroundColor="black" transparent="1" noWrap="1">
       <convert type="EventName">Name</convert>
     </widget>
-    <widget source="session.Event_Now" render="Label" position="1080,382" size="125,26" zPosition="5" halign="right" font="Regular;20" foregroundColor="white" backgroundColor="black" transparent="1">
+    <widget source="session.Event_Now" render="Label" position="1073,318" size="90,23" zPosition="5" halign="right" font="Regular;20" foregroundColor="white" backgroundColor="black" transparent="1">
       <convert type="EventTime">Remaining</convert>
       <convert type="RemainingToText">InMinutes</convert>
     </widget>
     <!-- Progress Bar -->
-    <widget source="session.Event_Now" render="Progress" pixmap="megaMod/skin_default/p_bar.png" position="640,406" size="570,2" zPosition="5" transparent="1">
+    <widget source="session.Event_Now" render="Progress" pixmap="megaMod/skin_default/p_bar.png" position="696,315" size="470,5" zPosition="5" transparent="1">
       <convert type="EventTime">Progress</convert>
     </widget>
     <!-- Epg Event Next -->
@@ -789,7 +789,7 @@
       <convert type="EventName2">NextName</convert>
     </widget>
     <!-- BoxSet ButtonColors -->
-    <ePixmap position="50,659" size="1200,50" pixmap="megaMod/buttons/5colors.png" zPosition="2" alphatest="blend" />
+    <ePixmap position="52,658" size="1200,50" pixmap="megaMod/buttons/5colors.png" zPosition="2" alphatest="blend" />
     <widget position="100,666" size="210,21" name="key_red" font="Regular;19" halign="left" foregroundColor="white" backgroundColor="black" zPosition="1" transparent="1" />
     <widget position="340,666" size="210,21" name="key_green" font="Regular;19" halign="left" foregroundColor="white" backgroundColor="black" zPosition="1" transparent="1" />
     <widget position="580,666" size="210,21" name="key_yellow" font="Regular;19" halign="left" foregroundColor="white" backgroundColor="black" zPosition="1" transparent="1" />
@@ -1328,7 +1328,7 @@ self.instance.move(ePoint((1280-wsizex)/2, (720-wsizey)/2))
   </screen>
   <!-- EPG Selection - Single -->
   <screen name="EPGSelection" position="0,0" size="1280,720" title="EPG Selection" backgroundColor="transparent" flags="wfNoBorder">
-    <ePixmap position="0,0" zPosition="-1" size="1280,720" pixmap="megaMod/panel.png" />
+    <ePixmap position="1,-1" zPosition="-1" size="1280,720" pixmap="megaMod/panel.png" />
     <widget source="Title" render="Label" zPosition="1" position="60,37" size="500,24" halign="center" font="Regular;22" foregroundColor="white" transparent="1" backgroundColor="transpBlack" />
     <widget source="global.CurrentTime" render="Label" position="1140,37" size="80,24" font="Regular;22" halign="right" backgroundColor="black" transparent="1">
       <convert type="ClockToText">
@@ -1336,32 +1336,32 @@ self.instance.move(ePoint((1280-wsizex)/2, (720-wsizey)/2))
     </widget>
     <!-- Lista -->
     <widget name="list" position="60,90" size="520,530" scrollbarMode="showOnDemand" selectionPixmap="megaMod/buttons//slider30.png" transparent="1" />
-    <widget source="Event" render="Label" position="625,420" zPosition="2" size="600,50" font="Regular;20" halign="center" foregroundColor="bluette" transparent="1">
+    <widget source="Event" render="Label" position="625,370" zPosition="2" size="600,30" font="Regular;20" halign="center" foregroundColor="bluette" transparent="1">
       <convert type="EventName">Name</convert>
     </widget>
-    <widget source="Event" render="Label" position="625,450" zPosition="2" size="605,175" font="Regular; 22" halign="center" foregroundColor="white" backgroundColor="black" shadowColor="black" shadowOffset="-2,-2" transparent="1">
+    <widget source="Event" render="Label" position="625,400" zPosition="2" size="600,240" font="Regular; 22" halign="center" foregroundColor="white" backgroundColor="black" shadowColor="black" shadowOffset="-2,-2" transparent="1">
       <convert type="EventName">ExtendedDescription</convert>
     </widget>
     <!-- Widget Pig -->
-    <ePixmap position="635,90" size="600,325" pixmap="megaMod/menu/tv.png" zPosition="4" alphatest="blend" />
-    <widget source="session.VideoPicture" render="Pig" position="640,95" size="570,310" zPosition="2" backgroundColor="undf0b1300" />
+    <ePixmap position="696,103" size="472,260" pixmap="megaMod/menu/tv1.png" zPosition="4" alphatest="blend" />
+    <widget source="session.VideoPicture" render="Pig" position="696,103" size="467,258" zPosition="2" backgroundColor="undf0b1300" />
     <widget source="session.CurrentService" render="Label" position="700,37" size="460,26" zPosition="5" font="Regular;22" halign="center" noWrap="1" transparent="1" foregroundColor="white" backgroundColor="background">
       <convert type="ServiceName">Name</convert>
     </widget>
     <!-- Event Now -->
-    <widget source="session.Event_Now" render="Label" position="645,382" size="90,26" zPosition="5" font="Regular;20" foregroundColor="white" backgroundColor="black" transparent="1">
+    <widget source="session.Event_Now" render="Label" position="696,338" size="90,23" zPosition="5" font="Regular;20" foregroundColor="white" backgroundColor="black" transparent="1">
       <convert type="EventTime">StartTime</convert>
       <convert type="ClockToText">Default</convert>
     </widget>
-    <widget source="session.Event_Now" render="Label" position="705,382" size="410,26" zPosition="5" halign="center" font="Regular;20" foregroundColor="white" backgroundColor="black" transparent="1" noWrap="1">
+    <widget source="session.Event_Now" render="Label" position="756,338" size="370,23" zPosition="5" halign="center" font="Regular;20" foregroundColor="white" backgroundColor="black" transparent="1" noWrap="1">
       <convert type="EventName">Name</convert>
     </widget>
-    <widget source="session.Event_Now" render="Label" position="1080,382" size="125,26" zPosition="5" halign="right" font="Regular;20" foregroundColor="white" backgroundColor="black" transparent="1">
+    <widget source="session.Event_Now" render="Label" position="1073,338" size="90,23" zPosition="5" halign="right" font="Regular;20" foregroundColor="white" backgroundColor="black" transparent="1">
       <convert type="EventTime">Remaining</convert>
       <convert type="RemainingToText">InMinutes</convert>
     </widget>
     <!-- Progress Bar -->
-    <widget source="session.Event_Now" render="Progress" pixmap="megaMod/skin_default/p_bar.png" position="640,406" size="570,2" zPosition="5" transparent="1">
+    <widget source="session.Event_Now" render="Progress" pixmap="megaMod/skin_default/p_bar.png" position="696,335" size="470,5" zPosition="5" transparent="1">
       <convert type="EventTime">Progress</convert>
     </widget>
     <!-- BoxSet ButtonColors -->
@@ -1499,7 +1499,7 @@ self.instance.move(ePoint((1280-wsizex)/2, (720-wsizey)/2))
       </convert>
     </widget>
     <eLabel text="Menu - Info" position="1020,37" size="200,22" font="Regular;22" halign="right" foregroundColor="un404040" backgroundColor="black" zPosition="0" transparent="1" />
-    <widget name="timeline_text" position="40,75" size="1180,25" transparent="1" />
+    <widget name="timeline_text" position="center,75" size="1180,25" transparent="1" />
     <widget name="list" position="60,100" size="1160,360" itemHeight="60" EntryBorderColor="#071930" EntryBackgroundColor="#2f4964" EntryBackgroundColorSelected="#4176b6" scrollbarMode="showOnDemand" transparent="1" />
     <eLabel position="60,100" size="1160,1" backgroundColor="grey" />
     <eLabel position="60,160" size="225,1" backgroundColor="grey" />
@@ -2118,33 +2118,33 @@ self.instance.move(ePoint(orgpos.x() + (orgwidth - newwidth)/2, (720-wsizey)/2))
     <ePixmap position="60,212" zPosition="1" size="40,40" pixmap="megaMod/buttons/button_red_off.png" alphatest="blend" transparent="1" />
     <ePixmap position="60,262" zPosition="1" size="40,40" pixmap="megaMod/buttons/button_red_off.png" alphatest="blend" transparent="1" />
     <ePixmap position="60,312" zPosition="1" size="40,40" pixmap="megaMod/buttons/button_red_off.png" alphatest="blend" transparent="1" />
-    <widget name="Adaptertext" position="100,110" size="610,25" zPosition="1" font="Regular;22" foregroundColor="white" backgroundColor="black" transparent="1" />
-    <widget name="Adapter" position="355,110" size="610,25" zPosition="1" font="Regular;22" foregroundColors="#8c8c93,#f23d21,#538eff" backgroundColor="black" transparent="1" />
-    <widget name="AdapterInfo_OK" position="60,112" size="38,31" zPosition="2" pixmap="megaMod/buttons/button_green.png" alphatest="blend" />
-    <widget name="Networktext" position="100,160" size="610,25" zPosition="1" font="Regular;22" foregroundColor="white" backgroundColor="black" transparent="1" />
-    <widget name="Network" position="355,160" size="610,25" zPosition="1" font="Regular;22" foregroundColors="#8c8c93,#f23d21,#538eff" backgroundColor="black" transparent="1" />
+    <widget name="Adaptertext" position="90,109" size="275,25" zPosition="1" font="Regular;22" foregroundColor="white" backgroundColor="black" transparent="1" />
+    <widget name="Adapter" position="336,109" size="275,25" zPosition="1" font="Regular;22" foregroundColors="#8c8c93,#f23d21,#538eff" backgroundColor="black" transparent="1" />
+    <widget name="AdapterInfo_OK" position="60,111" size="38,31" zPosition="2" pixmap="megaMod/buttons/button_green.png" alphatest="blend" />
+    <widget name="Networktext" position="90,160" size="275,25" zPosition="1" font="Regular;22" foregroundColor="white" backgroundColor="black" transparent="1" />
+    <widget name="Network" position="336,160" size="275,25" zPosition="1" font="Regular;22" foregroundColors="#8c8c93,#f23d21,#538eff" backgroundColor="black" transparent="1" />
     <widget name="NetworkInfo_Check" position="60,162" size="38,31" zPosition="2" pixmaps="megaMod/buttons/button_green.png,megaMod/buttons/button_red.png" alphatest="blend" />
-    <widget name="Dhcptext" position="100,210" size="610,25" zPosition="1" font="Regular;22" foregroundColor="white" backgroundColor="black" transparent="1" />
-    <widget name="Dhcp" position="355,210" size="610,25" zPosition="1" font="Regular;22" foregroundColors="#8c8c93,#f23d21,#538eff" backgroundColor="black" transparent="1" />
+    <widget name="Dhcptext" position="90,210" size="275,25" zPosition="1" font="Regular;22" foregroundColor="white" backgroundColor="black" transparent="1" />
+    <widget name="Dhcp" position="336,210" size="275,25" zPosition="1" font="Regular;22" foregroundColors="#8c8c93,#f23d21,#538eff" backgroundColor="black" transparent="1" />
     <widget name="DhcpInfo_Check" position="60,212" size="38,31" zPosition="2" pixmaps="megaMod/buttons/button_green.png,megaMod/buttons/button_red.png" alphatest="blend" />
-    <widget name="IPtext" position="100,260" size="610,25" zPosition="1" font="Regular;22" foregroundColor="white" backgroundColor="black" transparent="1" />
-    <widget name="IP" position="355,260" size="610,25" zPosition="1" font="Regular;22" foregroundColors="#8c8c93,#f23d21,#538eff" backgroundColor="black" transparent="1" />
+    <widget name="IPtext" position="90,260" size="275,25" zPosition="1" font="Regular;22" foregroundColor="white" backgroundColor="black" transparent="1" />
+    <widget name="IP" position="336,260" size="275,25" zPosition="1" font="Regular;22" foregroundColors="#8c8c93,#f23d21,#538eff" backgroundColor="black" transparent="1" />
     <widget name="IPInfo_Check" position="60,262" size="38,31" zPosition="2" pixmaps="megaMod/buttons/button_green.png,megaMod/buttons/button_red.png" alphatest="blend" />
-    <widget name="DNStext" position="100,310" size="610,25" zPosition="1" font="Regular;22" foregroundColor="white" backgroundColor="black" transparent="1" />
-    <widget name="DNS" position="355,310" size="610,25" zPosition="1" font="Regular;22" foregroundColors="#8c8c93,#f23d21,#538eff" backgroundColor="black" transparent="1" />
+    <widget name="DNStext" position="90,310" size="275,25" zPosition="1" font="Regular;22" foregroundColor="white" backgroundColor="black" transparent="1" />
+    <widget name="DNS" position="336,310" size="275,25" zPosition="1" font="Regular;22" foregroundColors="#8c8c93,#f23d21,#538eff" backgroundColor="black" transparent="1" />
     <widget name="DNSInfo_Check" position="60,312" size="38,31" zPosition="2" pixmaps="megaMod/buttons/button_green.png,megaMod/buttons/button_red.png" alphatest="blend" />
-    <widget name="AdapterInfo" position="600,110" size="318,50" zPosition="1" />
-    <widget name="AdapterInfo_Text" position="600,110" size="318,50" zPosition="2" font="Regular;22" transparent="1" foregroundColors="#538eff,white,green" backgroundColor="black" />
-    <widget name="NetworkInfo" position="600,160" size="318,50" zPosition="1" />
-    <widget name="NetworkInfo_Text" position="600,160" size="318,50" zPosition="2" font="Regular;22" transparent="1" foregroundColors="#538eff,white,green" backgroundColor="black" />
-    <widget name="DhcpInfo" position="600,210" size="318,50" zPosition="1" />
-    <widget name="DhcpInfo_Text" position="600,210" size="318,50" zPosition="2" font="Regular;22" transparent="1" foregroundColors="#538eff,white,green" backgroundColor="black" />
-    <widget name="IPInfo" position="600,260" size="318,50" zPosition="1" />
-    <widget name="IPInfo_Text" position="600,260" size="318,50" zPosition="2" font="Regular;22" transparent="1" foregroundColors="#538eff,white,green" backgroundColor="black" />
-    <widget name="DNSInfo" position="600,310" size="318,50" zPosition="1" />
-    <widget name="DNSInfo_Text" position="600,310" size="318,50" zPosition="2" font="Regular;22" transparent="1" foregroundColors="#538eff,white,green" backgroundColor="black" />
-    <widget name="EditSettingsButton" position="355,370" size="250,50" zPosition="1" />
-    <widget name="EditSettings_Text" position="355,380" size="250,50" zPosition="2" font="Regular;22" transparent="1" foregroundColors="#538eff,white,green" backgroundColor="black" />
+    <widget name="AdapterInfo" position="580,110" size="278,50" zPosition="1" />
+    <widget name="AdapterInfo_Text" position="580,109" size="278,50" zPosition="2" font="Regular;22" transparent="1" foregroundColors="#538eff,white,green" backgroundColor="black" />
+    <widget name="NetworkInfo" position="580,160" size="278,50" zPosition="1" />
+    <widget name="NetworkInfo_Text" position="580,160" size="278,50" zPosition="2" font="Regular;22" transparent="1" foregroundColors="#538eff,white,green" backgroundColor="black" />
+    <widget name="DhcpInfo" position="580,210" size="278,50" zPosition="1" />
+    <widget name="DhcpInfo_Text" position="580,210" size="278,50" zPosition="2" font="Regular;22" transparent="1" foregroundColors="#538eff,white,green" backgroundColor="black" />
+    <widget name="IPInfo" position="580,260" size="278,50" zPosition="1" />
+    <widget name="IPInfo_Text" position="580,259" size="278,50" zPosition="2" font="Regular;22" transparent="1" foregroundColors="#538eff,white,green" backgroundColor="black" />
+    <widget name="DNSInfo" position="580,310" size="278,50" zPosition="1" />
+    <widget name="DNSInfo_Text" position="580,309" size="278,50" zPosition="2" font="Regular;22" transparent="1" foregroundColors="#538eff,white,green" backgroundColor="black" />
+    <widget name="EditSettingsButton" position="336,350" size="250,50" zPosition="1" />
+    <widget name="EditSettings_Text" position="336,350" size="250,50" zPosition="2" font="Regular;22" transparent="1" foregroundColors="#538eff,white,green" backgroundColor="black" />
     <widget name="InfoText" position="60,410" size="640,220" zPosition="25" font="Regular;20" halign="center" valign="center" foregroundColor="yellow" backgroundColor="black" transparent="1" />
     <widget name="InfoTextBorder" position="0,0" size="0,0" />
     <ePixmap position="50,659" size="1200,50" pixmap="megaMod/buttons/3colors.png" zPosition="2" alphatest="blend" />
@@ -2220,8 +2220,8 @@ self.instance.move(ePoint(orgpos.x() + (orgwidth - newwidth)/2, (720-wsizey)/2))
       <convert type="ClockToText">Format:%H:%M:%S</convert>
     </widget>
     <widget name="filelist" position="60,90" size="520,450" itemHeight="30" scrollbarMode="showOnDemand" transparent="1" />
-    <ePixmap position="635,90" size="600,325" pixmap="megaMod/menu/tv.png" zPosition="4" alphatest="blend" />
-    <widget name="thn" position="640,95" size="570,310" backgroundColor="black" transparent="1" />
+    <ePixmap position="696,85" size="472,260" pixmap="megaMod/menu/tv1.png" zPosition="4" alphatest="blend" />
+    <widget name="thn" position="696,85" size="467,259" backgroundColor="black" transparent="1" />
     <widget source="label" render="Label" position="645,380" size="570,240" font="Regular;22" zPosition="4" transparent="1" />
     <ePixmap position="50,659" size="1200,50" pixmap="megaMod/buttons/4colors.png" zPosition="2" alphatest="blend" />
     <widget source="key_red" render="Label" position="100,666" size="210,21" zPosition="1" font="Regular;19" halign="left" backgroundColor="black" transparent="1" />
@@ -3125,7 +3125,7 @@ self.instance.move(ePoint(orgpos.x() + (orgwidth - newwidth)/2, (720-wsizey)/2))
     <widget source="key_red" render="Label" position="100,666" size="210,21" zPosition="1" font="Regular;19" bhalign="left" ackgroundColor="black" transparent="1" />
   </screen>
   <!-- W-LAN Scan -->
-  <screen name="WlanScan" position="0,0" size="1280,720" title="Choose a Wireless Network" backgroundColor="background" flags="wfNoBorder">
+  <screen name="WlanScan" position="0,0" size="1280,720" title="Choose a Wireless Network" backgroundColor="transpBlack" flags="wfNoBorder">
     <ePixmap position="0,0" zPosition="-1" size="1280,720" pixmap="megaMod/menu/panel1.png" alphatest="blend" transparent="1" />
     <widget source="Title" render="Label" zPosition="2" position="60,45" size="750,40" halign="center" font="Regular; 22" foregroundColor="white" transparent="1" shadowColor="black" shadowOffset="-1,-1" backgroundColor="black" />
     <ePixmap pixmap="megaMod/menu/web_browser.png" position="940,404" size="256,294" zPosition="2" alphatest="blend" />
@@ -3746,11 +3746,11 @@ self.instance.move(ePoint(orgpos.x() + (orgwidth - newwidth)/2, (720-wsizey)/2))
     <eLabel text="ECM Info" position="60,355" size="640,30" font="Regular;28" zPosition="0" foregroundColor="bluette" backgroundColor="black" transparent="1" />
     <eLabel position="60,385" size="640,1" zPosition="1" backgroundColor="un404040" />
     <eLabel position="60,387" size="640,1" zPosition="1" backgroundColor="un202020" />
-    <ePixmap position="50,659" size="1200,50" pixmap="megaMod/buttons/4colors.png" zPosition="2" alphatest="blend" />
-    <widget position="100,666" size="210,21" name="key_red" font="Regular;19" halign="left" foregroundColor="white" backgroundColor="black" zPosition="1" transparent="1" />
-    <widget position="340,666" size="210,21" name="key_green" font="Regular;19" halign="left" foregroundColor="white" backgroundColor="black" zPosition="1" transparent="1" />
-    <widget position="580,666" size="210,21" name="key_yellow" font="Regular;19" halign="left" foregroundColor="white" backgroundColor="black" zPosition="1" transparent="1" />
-    <widget position="820,666" size="210,21" name="key_blue" font="Regular;19" halign="left" foregroundColor="white" backgroundColor="black" zPosition="1" transparent="1" />
+    <ePixmap position="51,660" size="1200,54" pixmap="megaMod/buttons/4colors.png" zPosition="2" transparent="1" alphatest="blend" />
+    <widget position="100,666" size="210,21" source="key_red" render="Label" font="Regular;19" halign="left" foregroundColor="white" backgroundColor="black" zPosition="1" transparent="0" />
+    <widget position="340,666" size="210,21" source="key_green" render="Label" font="Regular;19" halign="left" foregroundColor="white" backgroundColor="black" zPosition="1" transparent="0" />
+    <widget position="580,666" size="210,21" source="key_yellow" render="Label" font="Regular;19" halign="left" foregroundColor="white" backgroundColor="black" zPosition="1" transparent="0" />
+    <widget position="820,666" size="210,21" source="key_blue" render="Label" font="Regular;19" halign="left" foregroundColor="white" backgroundColor="black" zPosition="1" transparent="0" />
     <eLabel position="5,0" size="620,2" backgroundColor="unaaaaaa" />
     <widget source="list" render="Listbox" position="60,152" size="641,200" scrollbarMode="showOnDemand">
       <convert type="TemplatedMultiContent">
@@ -3773,7 +3773,7 @@ self.instance.move(ePoint(orgpos.x() + (orgwidth - newwidth)/2, (720-wsizey)/2))
     <ePixmap position="50,659" size="1200,50" pixmap="megaMod/buttons/2colors.png" zPosition="2" alphatest="blend" />
     <eLabel position="5,0" size="490,2" backgroundColor="unaaaaaa" />
     <widget name="config" position="60,76" size="636,50" zPosition="1" scrollbarMode="showOnDemand" />
-    <widget name="key_red" position="100,666" zPosition="1" size="210,21" valign="center" halign="left" font="Regular; 19" transparent="1" backgroundColor="black" />
-    <widget name="key_green" position="340,666" zPosition="1" size="210,21" valign="center" halign="left" font="Regular; 19" transparent="1" backgroundColor="black" />
+    <widget source="key_red" render="Label" position="100,666" zPosition="1" size="210,21" valign="center" halign="left" font="Regular; 19" transparent="0" backgroundColor="black" />
+    <widget source="key_green" render="Label" position="340,666" zPosition="1" size="210,21" valign="center" halign="left" font="Regular; 19" transparent="0" backgroundColor="black" />
   </screen>
 </skin>
