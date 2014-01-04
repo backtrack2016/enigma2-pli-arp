@@ -462,7 +462,6 @@ void gPixmap::blit(const gPixmap &src, const eRect &_pos, const gRegion &clip, i
 
 		if (flag & blitScale)
 		{
-#if not defined (__sh__) //if accel blit fails, do direkt blit
 			if ((surface->bpp == 32) && (src.surface->bpp==8))
 			{	
 				const __u8 *srcptr = (__u8*)src.surface->data;
@@ -585,7 +584,6 @@ void gPixmap::blit(const gPixmap &src, const eRect &_pos, const gRegion &clip, i
 			eDebug("[BLITBENCH] CPU scale blit took %u us", s.elapsed_us());
 #endif
 			continue;
-#endif
 		}
 
 		if ((surface->bpp == 8) && (src.surface->bpp == 8))
