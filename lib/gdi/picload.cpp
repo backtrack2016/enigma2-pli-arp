@@ -482,7 +482,7 @@ static int jpeg_save(const char * filename, int ox, int oy, unsigned char *pic_b
 		eDebug("[Picload] jpeg can't open %s", filename);
 		return 1;
 	}
-	eDebug("[Picload] save Thumbnail... %s",filename);
+	//eDebug("[Picload] save Thumbnail... %s",filename);
 
 	jpeg_stdio_dest(&cinfo, outfile);
 
@@ -666,7 +666,7 @@ void ePicLoad::decodePic()
 {
 	if (m_filepara->id == F_JPEG)
 	{
-		eDebug("[Picload] hardware decode picture... %s",m_filepara->file);
+		//eDebug("[Picload] hardware decode picture... %s",m_filepara->file);
 		m_filepara->pic_buffer = NULL;
 		FILE *fp;
 
@@ -702,7 +702,7 @@ void ePicLoad::decodePic()
 		fclose(fp);
 	}
 
-	eDebug("[Picload] software decode picture... %s",m_filepara->file);
+	//eDebug("[Picload] software decode picture... %s",m_filepara->file);
 
 	switch(m_filepara->id)
 	{
@@ -718,7 +718,7 @@ void ePicLoad::decodePic()
 
 void ePicLoad::decodeThumb()
 {
-	eDebug("[Picload] get Thumbnail... %s",m_filepara->file);
+	//eDebug("[Picload] get Thumbnail... %s",m_filepara->file);
 
 	bool exif_thumbnail = false;
 	bool cachefile_found = false;
@@ -737,7 +737,7 @@ void ePicLoad::decodeThumb()
 					free(m_filepara->file);
 					m_filepara->file = strdup(THUMBNAILTMPFILE);
 					exif_thumbnail = true;
-					eDebug("[Picload] Exif Thumbnail found");
+					//eDebug("[Picload] Exif Thumbnail found");
 				}
 				m_filepara->addExifInfo(exif->m_exifinfo->CameraMake);
 				m_filepara->addExifInfo(exif->m_exifinfo->CameraModel);
@@ -782,7 +782,7 @@ void ePicLoad::decodeThumb()
 				free(m_filepara->file);
 				m_filepara->file = strdup(cachefile.c_str());
 				m_filepara->id = F_JPEG;
-				eDebug("[Picload] Cache File found");
+				//eDebug("[Picload] Cache File found");
 			}
 		}
 	}
@@ -790,7 +790,7 @@ void ePicLoad::decodeThumb()
 	int hw_decoded = 0;
 	if (m_filepara->id == F_JPEG)
 	{
-		eDebug("[Picload] hardware decode picture... %s",m_filepara->file);
+		//eDebug("[Picload] hardware decode picture... %s",m_filepara->file);
 		m_filepara->pic_buffer = NULL;
 		FILE *fp;
 
@@ -923,7 +923,7 @@ void ePicLoad::gotMessage(const Message &msg)
 			msg_main.send(Message(Message::decode_finished));
 			break;
 		case Message::quit: // called from decode thread
-			eDebug("[Picload] decode thread ... got quit msg");
+			//eDebug("[Picload] decode thread ... got quit msg");
 			quit(0);
 			break;
 		case Message::decode_finished: // called from main thread
@@ -948,7 +948,7 @@ int ePicLoad::startThread(int what, const char *file, int x, int y, bool async)
 {
 	if(async && threadrunning && m_filepara != NULL)
 	{
-		eDebug("[Picload] thread running");
+		//eDebug("[Picload] thread running");
 		m_filepara->callback = false;
 		return 1;
 	}
@@ -1269,9 +1269,9 @@ RESULT ePicLoad::setPara(int width, int height, double aspectRatio, int as, bool
 
 	if(bg_str[0] == '#' && strlen(bg_str)==9)
 		m_conf.background = strtoul(bg_str+1, NULL, 16);
-	eDebug("[Picload] setPara max-X=%d max-Y=%d aspect_ratio=%lf cache=%d resize=%d bg=#%08X",
+	/*eDebug("[Picload] setPara max-X=%d max-Y=%d aspect_ratio=%lf cache=%d resize=%d bg=#%08X",
 			m_conf.max_x, m_conf.max_y, m_conf.aspect_ratio,
-			(int)m_conf.usecache, (int)m_conf.resizetype, m_conf.background);
+			(int)m_conf.usecache, (int)m_conf.resizetype, m_conf.background);*/
 	return 1;	
 }
 
