@@ -682,6 +682,8 @@ eServiceMP3::eServiceMP3(eServiceReference ref):
 		;
 	else if (!strncmp("file://", m_ref.path.c_str(), 7))
 		;
+	else if (!strncmp("udp://", m_ref.path.c_str(), 6))
+		;
 	else
 		strcat(file, "file://");
 	strcat(file, m_ref.path.c_str());
