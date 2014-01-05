@@ -732,7 +732,7 @@ class MovieList(GUIComponent):
 					found = True
 					self.instance.moveSelectionTo(index + currentIndex + 1)
 					break
-				elif len(self._char) > 1 and itemName.find(self._char) >= 0:
+				elif len(self._char) > 1 and self._char in itemName:
 					found = True
 					self.instance.moveSelectionTo(index + currentIndex + 1)
 					break
@@ -745,7 +745,7 @@ class MovieList(GUIComponent):
 					found = True
 					self.instance.moveSelectionTo(index + 1)
 					break
-				elif len(self._char) > 1 and itemName.find(self._char) >= 0:
+				elif len(self._char) > 1 and self._char in itemName:
 					found = True
 					self.instance.moveSelectionTo(index + 1)
 					break
