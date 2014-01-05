@@ -121,7 +121,6 @@ class Satfinder(ScanSetup, ServiceScan):
 			self.createSetup()
 
 	def retune(self, configElement):
-		returnvalue = (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 		if not self.tuning_sat.value:
 			return
 		satpos = int(self.tuning_sat.value)
