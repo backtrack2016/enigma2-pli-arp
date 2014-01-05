@@ -149,7 +149,7 @@ class IpkgComponent:
 				self.callCallbacks(self.EVENT_ERROR, None)
 			elif data.startswith('ipkg_download: ERROR:'):
 				self.callCallbacks(self.EVENT_ERROR, None)
-			elif data.find('Configuration file \'') >= 0:
+			elif 'Configuration file \'' in data:
 				# Note: the config file update question doesn't end with a newline, so
 				# if we get multiple config file update questions, the next ones
 				# don't necessarily start at the beginning of a line
