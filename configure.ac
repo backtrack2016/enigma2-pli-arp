@@ -30,26 +30,22 @@ AM_CONDITIONAL(HAVE_FAKE_GIT_DIR, test -f "$srcdir/.git/last_commit_info")
 
 PKG_CHECK_MODULES(LIBDDVD, libdreamdvd, HAVE_LIBDDVD="yes", HAVE_LIBDDVD="no")
 
-AC_ARG_ENABLE([spark],
-        [AS_HELP_STRING(--enable-spark,    enable spark stuff)],
-#	AC_MSG_ERROR([bad value I${enableval}I for --enable-spark]))
-        [case "${enableval}" in
-                yes) enable_spark=true ;;
-                no) enable_spark=false ;;
-                *) AC_MSG_ERROR([bad value ${enableval} for --enable-spark]) ;;
-        esac])
-AM_CONDITIONAL([ENABLE_SPARK], [test x$enable_spark = xtrue])
+AC_ARG_ENABLE(spark,
+	[  --enable-spark          enable spark stuff],
+	[AC_DEFINE(ENABLE_SPARK,1,[enable spark stuff])])
 
-AC_ARG_ENABLE([spark7162],
-        [AS_HELP_STRING(--enable-spark7162,    enable spark7162 stuff)],
-#	AC_MSG_ERROR([bad value I${enableval}I for --enable-spark7162]))
-        [case "${enableval}" in
-                yes) enable_spark7162=true ;;
-                no) enable_spark7162=false ;;
-                *) AC_MSG_ERROR([bad value ${enableval} for --enable-spark7162]) ;;
-        esac])
-AM_CONDITIONAL([ENABLE_SPARK7162], [test x$enable_spark7162 = xtrue])
+AM_CONDITIONAL(ENABLE_SPARK,test "$enable_spark" = "yes")
+if test "$enable_spark" = "yes"; then
+	AC_DEFINE(ENABLE_SPARK,1,[enable spark stuff])
+fi
 
+AC_ARG_ENABLE(spark7162,
+	[  --enable-spark7162          enable spark7162 stuff],
+	[AC_DEFINE(ENABLE_SPARK7162,1,[enable spark7162 stuff])])
+AM_CONDITIONAL(ENABLE_SPARK7162,test "$enable_spark7162" = "yes")
+if test "$enable_spark7162" = "yes"; then
+	AC_DEFINE(ENABLE_SPARK7162,1,[enable spark7162 stuff])
+fi
 
 AC_ARG_ENABLE(libeplayer3,
 	[  --enable-libeplayer3          enable TDT libeplayer3 as player engine supportt],
