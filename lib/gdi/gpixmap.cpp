@@ -206,9 +206,6 @@ void gPixmap::fill(const gRegion &region, const gColor &color)
 			else
 				col = 0x10101 * color;
 			
-#if defined(__sh__)
-if ((col&0xFF000000) == 0xFF000000) col = 0xFF000000;
-#endif
 			col^=0xFF000000;
 			
 			if (surface->data_phys)
@@ -241,9 +238,6 @@ void gPixmap::fill(const gRegion &region, const gRGB &color)
 			__u32 col;
 
 			col = color.argb();
-#if defined(__sh__)
-if ((col&0xFF000000) == 0xFF000000) col = 0xFF000000;
-#endif
 			col^=0xFF000000;
 
 #ifdef GPIXMAP_DEBUG
@@ -674,9 +668,6 @@ void gPixmap::blit(const gPixmap &src, const eRect &_pos, const gRegion &clip, i
 			__u8 *dstptr=(__u8*)surface->data; // !!
 			__u32 pal[256];
 			convert_palette(pal, src.surface->clut);
-#if defined(__sh__)
-if ((pal[i]&0xFF000000) >= 0xE0000000) pal[i] = 0xFF000000;
-#endif
 
 			srcptr+=srcarea.left()*src.surface->bypp+srcarea.top()*src.surface->stride;
 			dstptr+=area.left()*surface->bypp+area.top()*surface->stride;
