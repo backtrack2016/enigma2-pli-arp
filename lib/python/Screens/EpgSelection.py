@@ -10,7 +10,7 @@ from Components.UsageConfig import preferredTimerPath
 from Components.Sources.ServiceEvent import ServiceEvent
 from Components.Sources.Event import Event
 from Screens.ChoiceBox import ChoiceBox
-from Screens.TimerEdit import TimerSanityConflict
+from Screens.TimerEdit import TimerSanityConflict, TimerEditList
 from Screens.EventView import EventViewSimple
 from Screens.MessageBox import MessageBox
 from TimeDateInput import TimeDateInput
@@ -188,8 +188,12 @@ class EPGSelection(Screen):
 	def zapTo(self):
 		if self.key_red_choice == self.ZAP and self.zapFunc:
 			self.closeRecursive = True
-			self.zapSelectedService()
-			self.close(self.closeRecursive)
+			from Components.ServiceEventTracker import InfoBarCount
+			if InfoBarCount > 1:
+				self.eventPreview()
+			else:
+				self.zapSelectedService()
+				self.close(self.closeRecursive)
 
 	def zapSelectedService(self, prev=False):
 		lst = self["list"]
@@ -206,7 +210,14 @@ class EPGSelection(Screen):
 			self.zapSelectedService(True)
 
 	def eventSelected(self):
-		self.infoKeyPressed()
+		if self.skinName == "EPGSelectionMulti":
+			cur = self["list"].getCurrent()
+			event = cur[0]
+			ref = cur[1] and cur[1].ref.toString()
+			if ref and event:
+				self.session.open(EPGSelection, ref)
+		else:
+			self.infoKeyPressed()
 
 	def yellowButtonPressed(self):
 		if self.type == EPG_TYPE_MULTI:
@@ -237,6 +248,12 @@ class EPGSelection(Screen):
 		self["key_green"].setText(_("Add timer"))
 		self.key_green_choice = self.ADD_TIMER
 
+	def disableTimer(self, timer):
+		timer.disable()
+		self.session.nav.RecordTimer.timeChanged(timer)
+		self["key_green"].setText(_("Add timer"))
+		self.key_green_choice = self.ADD_TIMER
+
 	def timerAdd(self):
 		cur = self["list"].getCurrent()
 		event = cur[0]
@@ -249,12 +266,20 @@ class EPGSelection(Screen):
 			if timer.eit == eventid and ':'.join(timer.service_ref.ref.toString().split(':')[:11]) == refstr:
 				menu = [(_("Delete timer"), "delete"),(_("Edit timer"), "edit")]
 				buttons = ["red", "green"]
+				if not timer.isRunning():
+					menu.append((_("Disable timer"), "disable"))
+					buttons.append("yellow")
+				menu.append((_("Timer Overview"), "timereditlist"))
 				def timerAction(choice):
 					if choice is not None:
 						if choice[1] == "delete":
 							self.removeTimer(timer)
 						elif choice[1] == "edit":
 							self.session.open(TimerEntry, timer)
+						elif choice[1] == "disable":
+							self.disableTimer(timer)
+						elif choice[1] == "timereditlist":
+							self.session.open(TimerEditList)
 				self.session.openWithCallback(timerAction, ChoiceBox, title=_("Select action for timer %s:") % event.getEventName(), list=menu, keys=buttons)
 				break
 		else:
