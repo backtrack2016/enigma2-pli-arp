@@ -434,7 +434,7 @@ int eDVBCableTransponderData::getSystem() const
 {
 	if (originalValues) return transponderParameters.system;
 
-#ifdef SYS_DVBC_ANNEX_C
+#if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 6
 	switch (getProperty(DTV_DELIVERY_SYSTEM))
 	{
 	default:
@@ -544,7 +544,7 @@ int eDVBTerrestrialTransponderData::getTransmissionMode() const
 	{
 	case TRANSMISSION_MODE_2K: return eDVBFrontendParametersTerrestrial::TransmissionMode_2k;
 	case TRANSMISSION_MODE_8K: return eDVBFrontendParametersTerrestrial::TransmissionMode_8k;
-#if 0
+#if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 3
 	case TRANSMISSION_MODE_4K: return eDVBFrontendParametersTerrestrial::TransmissionMode_4k;
 	case TRANSMISSION_MODE_1K: return eDVBFrontendParametersTerrestrial::TransmissionMode_1k;
 	case TRANSMISSION_MODE_16K: return eDVBFrontendParametersTerrestrial::TransmissionMode_16k;
@@ -565,7 +565,7 @@ int eDVBTerrestrialTransponderData::getGuardInterval() const
 	case GUARD_INTERVAL_1_16: return eDVBFrontendParametersTerrestrial::GuardInterval_1_16;
 	case GUARD_INTERVAL_1_8: return eDVBFrontendParametersTerrestrial::GuardInterval_1_8;
 	case GUARD_INTERVAL_1_4: return eDVBFrontendParametersTerrestrial::GuardInterval_1_4;
-#if 0
+#if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 3
 	case GUARD_INTERVAL_1_128: return eDVBFrontendParametersTerrestrial::GuardInterval_1_128;
 	case GUARD_INTERVAL_19_128: return eDVBFrontendParametersTerrestrial::GuardInterval_19_128;
 	case GUARD_INTERVAL_19_256: return eDVBFrontendParametersTerrestrial::GuardInterval_19_256;
@@ -693,7 +693,7 @@ std::string eDVBFrontendData::getTypeDescription() const
 		{
 			result = "DVB-S";
 		}
-#ifdef SYS_DVBC_ANNEX_A
+#if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 6
 		else if (frontend->supportsDeliverySystem(SYS_DVBC_ANNEX_A, true) || frontend->supportsDeliverySystem(SYS_DVBC_ANNEX_C, true))
 #else
 		else if (frontend->supportsDeliverySystem(SYS_DVBC_ANNEX_AC, true))
