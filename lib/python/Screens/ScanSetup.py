@@ -14,25 +14,6 @@ from enigma import eTimer, eDVBFrontendParametersSatellite, eComponentScan, \
 	eDVBFrontendParametersCable, eConsoleAppContainer, eDVBResourceManager
 from Components.Converter.ChannelNumbers import channelnumbers
 
-def buildTerTransponder(frequency,
-		inversion=2, bandwidth = 7000000, fechigh = 6, feclow = 6,
-		modulation = 2, transmission = 2, guard = 4,
-		hierarchy = 4, system = 0, plp_id = 0):
-#	print "freq", frequency, "inv", inversion, "bw", bandwidth, "fech", fechigh, "fecl", feclow, "mod", modulation, "tm", transmission, "guard", guard, "hierarchy", hierarchy, "system", system, "plp_id", plp_id
-	parm = eDVBFrontendParametersTerrestrial()
-	parm.frequency = frequency
-	parm.inversion = inversion
-	parm.bandwidth = bandwidth
-	parm.code_rate_HP = fechigh
-	parm.code_rate_LP = feclow
-	parm.modulation = modulation
-	parm.transmission_mode = transmission
-	parm.guard_interval = guard
-	parm.hierarchy = hierarchy
-	parm.system = system
-	parm.plp_id = plp_id
-	return parm
-
 def getInitialTransponderList(tlist, pos):
 	list = nimmanager.getTransponders(pos)
 	for x in list:
@@ -68,15 +49,20 @@ def getInitialCableTransponderList(tlist, nim):
 
 def getInitialTerrestrialTransponderList(tlist, region):
 	list = nimmanager.getTranspondersTerrestrial(region)
-
-	#self.transponders[self.parsedTer].append((2,freq,bw,const,crh,crl,guard,transm,hierarchy,inv))
-
-	#def buildTerTransponder(frequency, inversion = 2, bandwidth = 3, fechigh = 6, feclow = 6,
-				#modulation = 2, transmission = 2, guard = 4, hierarchy = 4, system = 0, plp_id = 0):
-
 	for x in list:
 		if x[0] == 2: #TERRESTRIAL
-			parm = buildTerTransponder(x[1], x[9], x[2], x[4], x[5], x[3], x[7], x[6], x[8], x[10], x[11])
+			parm = eDVBFrontendParametersTerrestrial()
+			parm.frequency = x[1]
+			parm.bandwidth = x[2]
+			parm.modulation = x[3]
+			parm.code_rate_HP = x[4]
+			parm.code_rate_LP = x[5]
+			parm.guard_interval = x[6]
+			parm.transmission_mode = x[7]
+			parm.hierarchy = x[8]
+			parm.inversion = x[9]
+			parm.system = x[10]
+			parm.plp_id = x[11]
 			tlist.append(parm)
 
 cable_bands = {
@@ -831,8 +817,21 @@ class ScanSetup(ConfigListScreen, Screen, CableTransponderSearchSupport):
 		parm.inversion = inversion
 		tlist.append(parm)
 
-	def addTerTransponder(self, tlist, *args, **kwargs):
-		tlist.append(buildTerTransponder(*args, **kwargs))
+	def addTerTransponder(self, tlist, frequency, bandwidth, fechigh, feclow, inversion, modulation, transmission, guard, hierarchy, system, plp_id):
+		print "Add Ter: frequ: " + str(frequency) + " bw: " + str(bandwidth) + " modulation: " + str(modulation) + " fechigh: " + str(fechigh) + " feclow: " + str(feclow) + " inversion: " + str(inversion) + " transmission: " + str(transmission) + " guard: " + " hierarchy: " + str(hierarchy) + str(guard) + " system: " + str(system) + " plp_id: " + str(plp_id)
+		parm = eDVBFrontendParametersTerrestrial()
+		parm.frequency = frequency
+		parm.bandwidth = bandwidth
+		parm.modulation = modulation
+		parm.code_rate_HP = fechigh
+		parm.code_rate_LP = feclow
+		parm.guard_interval = guard
+		parm.transmission_mode = transmission
+		parm.hierarchy = hierarchy
+		parm.inversion = inversion
+		parm.system = system
+		parm.plp_id = plp_id
+		tlist.append(parm)
 
 	def keyGo(self):
 		infoBarInstance = InfoBar.instance
@@ -927,18 +926,30 @@ class ScanSetup(ConfigListScreen, Screen, CableTransponderSearchSupport):
 					frequency = channelnumbers.channel2frequency(self.scan_ter.channel.value, self.ter_tnumber)
 				else:
 					frequency = self.scan_ter.frequency.value * 1000
+				if self.scan_ter.system.value == eDVBFrontendParametersTerrestrial.System_DVB_T2:
+					bandwidth = self.scan_ter.bandwidth_t2.value
+					modulation = self.scan_ter.modulation_t2.value
+					fechigh = self.scan_ter.fec_t2.value
+					transmission = self.scan_ter.transmission_t2.value
+					guard = self.scan_ter.guard_t2.value
+				else:
+					bandwidth = self.scan_ter.bandwidth.value
+					fechigh = self.scan_ter.fechigh.value
+					modulation = self.scan_ter.modulation.value
+					transmission = self.scan_ter.transmission.value
+					guard = self.scan_ter.guard.value
 				self.addTerTransponder(tlist,
 						frequency,
-						inversion = self.scan_ter.inversion.value,
-						bandwidth = self.scan_ter.bandwidth.value,
-						fechigh = self.scan_ter.fechigh.value,
-						feclow = self.scan_ter.feclow.value,
-						modulation = self.scan_ter.modulation.value,
-						transmission = self.scan_ter.transmission.value,
-						guard = self.scan_ter.guard.value,
-						hierarchy = self.scan_ter.hierarchy.value,
-						system  = self.scan_ter.system.value,
-						plp_id  = self.scan_ter.plp_id.value)
+						bandwidth,
+						fechigh,
+						self.scan_ter.feclow.value,
+						self.scan_ter.inversion.value,
+						modulation,
+						transmission,
+						guard,
+						self.scan_ter.hierarchy.value,
+						self.scan_ter.system.value,
+						self.scan_ter.plp_id.value)
 				removeAll = False
 			elif self.scan_typeterrestrial.value == "complete":
 				getInitialTerrestrialTransponderList(tlist, nimmanager.getTerrestrialDescription(index_to_scan))
