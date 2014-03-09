@@ -4,7 +4,6 @@ from Tools.Directories import SCOPE_SKIN, resolveFilename
 
 class RcModel:
         RcModels = {}
-	RCTYPE_SPARK = 7
 
 	def __init__(self):
 		self.model = HardwareInfo().get_device_model()
@@ -45,13 +44,8 @@ class RcModel:
 
 	def getRcImg(self):
 		return self.getRcFile('png')
-		elif os.path.exists('/proc/stb/info/model'):
-			self.currentRcType = self.RCTYPE_SPARK
-
 
 	def getRcPositions(self):
 		return self.getRcFile('xml')
-		elif self.currentRcType == self.RCTYPE_SPARK:
-			return '/usr/share/enigma2/rc_models/spark/'
 
 rc_model = RcModel()
