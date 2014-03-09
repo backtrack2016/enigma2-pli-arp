@@ -13,6 +13,7 @@ AC_PROG_CC
 AC_PROG_CXX
 m4_ifdef([LT_INIT], [LT_INIT], [AC_PROG_LIBTOOL])
 AC_CONFIG_MACRO_DIR([m4])
+AC_OPENMP()
 
 AC_PATH_PROG(MSGFMT, msgfmt, AC_MSG_ERROR(Could not find msgfmt))
 
@@ -153,7 +154,7 @@ AC_SUBST(ENIGMA2_CFLAGS)
 
 CPPFLAGS="$CPPFLAGS $PYTHON_CPPFLAGS"
 CFLAGS="$CFLAGS $DEBUG_CFLAGS -Wall"
-CXXFLAGS="$CXXFLAGS $DEBUG_CFLAGS -Wall $BASE_CFLAGS $ENIGMA2_CFLAGS $PTHREAD_CFLAGS"
+CXXFLAGS="$CXXFLAGS $DEBUG_CFLAGS -Wall $BASE_CFLAGS $ENIGMA2_CFLAGS $PTHREAD_CFLAGS $OPENMP_CFLAGS"
 
 AC_CONFIG_FILES([
 Makefile
@@ -162,18 +163,14 @@ data/fonts/Makefile
 data/countries/Makefile
 data/extensions/Makefile
 data/keymaps/Makefile
+data/hw_info/Makefile
 data/rc_models/Makefile
-data/rc_models/et4x00/Makefile
-data/rc_models/et6x00/Makefile
-data/rc_models/et9500/Makefile
-data/rc_models/et9x00/Makefile
-data/rc_models/vu/Makefile
-data/rc_models/xp1000/Makefile
 data/skin_default/Makefile
 data/skin_default/menu/Makefile
 data/skin_default/icons/Makefile
 data/skin_default/buttons/Makefile
 data/skin_default/spinner/Makefile
+data/skin_default/LCDIcons/Makefile
 include/Makefile
 lib/Makefile
 lib/base/eenv.cpp
