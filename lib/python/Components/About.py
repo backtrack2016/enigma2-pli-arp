@@ -11,7 +11,7 @@ def getImageVersionString():
 		if os.path.isfile('/var/lib/opkg/status'):
 			st = os.stat('/var/lib/opkg/status')
 		else:
-			st = os.stat('/usr/lib/ipkg/status')
+			st = os.stat('/usr/lib/opkg/status')
 		tm = time.localtime(st.st_mtime)
 		if tm.tm_year >= 2011:
 			return time.strftime("%Y-%m-%d %H:%M:%S", tm)
@@ -37,7 +37,7 @@ def getHardwareTypeString():
 
 def getImageTypeString():
 	try:
-		return open("/etc/issue").readlines()[-2].capitalize().strip()[:-6]
+		return open("/etc/image-version").readlines()[0].strip()[8:]
 	except:
 		pass
 	return _("undefined")
