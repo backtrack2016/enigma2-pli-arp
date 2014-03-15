@@ -13,6 +13,7 @@ from Components.config import config, ConfigBoolean, ConfigClock
 from Components.SystemInfo import SystemInfo
 from Components.UsageConfig import preferredInstantRecordPath, defaultMoviePath, ConfigSelection
 from Components.VolumeControl import VolumeControl
+from Components.Sources.StaticText import StaticText
 from EpgSelection import EPGSelection
 from Plugins.Plugin import PluginDescriptor
 
@@ -364,7 +365,7 @@ class NumberZap(Screen):
 	def handleServiceName(self):
 		if self.searchNumber:
 			self.service, self.bouquet = self.searchNumber(int(self["number"].getText()))
-			self ["servicename"].text = ServiceReference(self.service).getServiceName()
+			self["servicename"].text = self["servicename_summary"].text = ServiceReference(self.service).getServiceName()
 			if not self.startBouquet:
 				self.startBouquet = self.bouquet
 
@@ -375,27 +376,30 @@ class NumberZap(Screen):
 				self.service, self.bouquet = self.searchNumber(int(self["number"].getText()), firstBouquetOnly = True)
 			else:
 				self.service, self.bouquet = self.searchNumber(int(self["number"].getText()))
-			self ["servicename"].text = ServiceReference(self.service).getServiceName()
+			self["servicename"].text = self["servicename_summary"].text = ServiceReference(self.service).getServiceName()
 
 	def keyNumberGlobal(self, number):
 		self.Timer.start(1000, True)
-		self.field = self.field + str(number)
-		self["number"].setText(self.field)
+		self.numberString = self.numberString + str(number)
+		self["number"].text = self["number_summary"].text = self.numberString
 
 		self.handleServiceName()
 
-		if len(self.field) >= 5:
+		if len(self.numberString) >= 5:
 			self.keyOK()
 
 	def __init__(self, session, number, searchNumberFunction = None):
 		Screen.__init__(self, session)
-		self.field = str(number)
+		self.numberString = str(number)
 		self.searchNumber = searchNumberFunction
 		self.startBouquet = None
 
 		self["channel"] = Label(_("Channel:"))
-		self["number"] = Label(self.field)
+		self["number"] = Label(self.numberString)
 		self["servicename"] = Label()
+		self["channel_summary"] = StaticText(_("Channel:"))
+		self["number_summary"] = StaticText(self.numberString)
+		self["servicename_summary"] = StaticText()
 
 		self.handleServiceName()
 
