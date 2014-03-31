@@ -12,6 +12,7 @@ from Components.ConfigList import ConfigListScreen
 from Components.ServiceEventTracker import ServiceEventTracker, InfoBarBase
 from Components.Sources.ServiceEvent import ServiceEvent
 from Components.Sources.StaticText import StaticText
+from Components.Console import Console
 import Components.Harddisk
 from Components.UsageConfig import preferredTimerPath
 
@@ -89,13 +90,13 @@ def isTrashFolder(ref):
 	if not config.usage.movielist_trashcan.value or not ref.flags & eServiceReference.mustDescent:
 		return False
 	path = os.path.realpath(ref.getPath())
-	return path.endswith('.Trash') and path.startswith(Tools.Trashcan.getTrashFolder(path))
+	return path[-6:] == '.Trash' and path[:len(Tools.Trashcan.getTrashFolder(path))] == Tools.Trashcan.getTrashFolder(path)
 
 def isInTrashFolder(ref):
 	if not config.usage.movielist_trashcan.value or not ref.flags & eServiceReference.mustDescent:
 		return False
 	path = os.path.realpath(ref.getPath())
-	return path.startswith(Tools.Trashcan.getTrashFolder(path))
+	return path[:len(Tools.Trashcan.getTrashFolder(path))] == Tools.Trashcan.getTrashFolder(path)
 
 def isSimpleFile(item):
 	if not item:
@@ -504,7 +505,7 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 
 		self["InfobarActions"] = HelpableActionMap(self, "InfobarActions",
 			{
-				"showMovies": (self.doPathSelect, _("Select the movie path")),
+				"showMovies": (self.itemSelected, _("Select movie")),
 				"showRadio": (self.btn_radio, "?"),
 				"showTv": (self.btn_tv, _("Home")),
 				"showText": (self.btn_text, _("On end of movie")),
@@ -527,7 +528,7 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 
 		self["playbackActions"] = HelpableActionMap(self, "MoviePlayerActions",
 			{
-				"leavePlayer": (self.playbackStop, _("Stop")),
+				"leavePlayer": (self.abort, _("Exit movie list")),
 				"moveNext": (self.playNext, _("Play next")),
 				"movePrev": (self.playPrev, _("Play previous")),
 				"channelUp": (self.moveToFirstOrFirstFile, _("Go to first movie or top of list")),
@@ -632,7 +633,7 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 			}
 
 	def _callButton(self, name):
-		if name.startswith('@'):
+		if name[0] == '@':
 			item = self.getCurrentSelection()
 			if isSimpleFile(item):
 				name = name[1:]
@@ -722,7 +723,7 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 			path = service.getPath()
 			if path:
 				path = os.path.split(os.path.normpath(path))[0]
-				if not path.endswith('/'):
+				if not path[-1] == '/':
 					path += '/'
 				self.gotFilename(path, selItem = service)
 				return True
@@ -804,7 +805,7 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 		item = self.getCurrentSelection()
 		for name in ('red', 'green', 'yellow', 'blue'):
 			action = userDefinedButtons[name].value
-			if action.startswith('@'):
+			if action[0] == '@':
 				check = self.can_default
 			else:
 				try:
@@ -847,7 +848,7 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 	def playAsDVD(self, path):
 		try:
 			from Screens import DVD
-			if path.endswith('VIDEO_TS/'):
+			if path[-9:] == 'VIDEO_TS/':
 				# strip away VIDEO_TS/ part
 				path = os.path.split(path.rstrip('/'))[0]
 			self.session.open(DVD.DVDPlayer, dvd_filelist=[path])
@@ -969,9 +970,12 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 		if current is not None:
 			path = current.getPath()
 			if current.flags & eServiceReference.mustDescent:
-				if path.endswith("VIDEO_TS/") or os.path.exists(os.path.join(path, 'VIDEO_TS.IFO')):
+				if path[-9:] == "VIDEO_TS/" or os.path.exists(os.path.join(path, 'VIDEO_TS.IFO')):
 					#force a DVD extention
-					Screens.InfoBar.InfoBar.instance.checkTimeshiftRunning(boundFunction(self.itemSelectedCheckTimeshiftCallback, ".iso", path))
+					Screens.InfoBar.InfoBar.instance.checkTimeshiftRunning(boundFunction(self.itemSelectedCheckTimeshiftCallback, ".img", path))
+					return
+				if self.IsBluray(path):
+					Screens.InfoBar.InfoBar.instance.checkTimeshiftRunning(boundFunction(self.itemSelectedCheckTimeshiftCallback, "bluray", path))
 					return
 				self.gotFilename(path)
 			else:
@@ -1005,14 +1009,48 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 
 	def itemSelectedCheckTimeshiftCallback(self, ext, path, answer):
 		if answer:
-			if ext in DVD_EXTENSIONS:
-				if self.playAsDVD(path):
-					return
-			self.movieSelected()
+			if ext == ".iso":
+				if os.path.exists("/media/bludisc"):
+					Console().ePopen("umount -f /media/bludisc")
+				else:
+					Console().ePopen("mkdir /media/bludisc")
+				Console().ePopen("mount -r %s /media/bludisc" % path, self.CheckIsoMount, path)
+			elif ext == "bluray" or ext in DVD_EXTENSIONS:
+				self.setMovieType(ext, path)
+			else:
+				self.movieSelected()
+
+	def CheckIsoMount(self, result, retval, extra_args):
+		ext = self.IsBluray("/media/bludisc/")
+		self.setMovieType(ext, extra_args)
+
+	def setMovieType(self, ext, path):
+		current = None
+		if "bluray" in ext:
+			if ext == "bluray":
+				newpath = path
+			else:
+				newpath = "/media/bludisc/"
+			print "[MovieSelection]",path ,"play as bluray disc"
+			current = eServiceReference(4097, 0, "bluray:/" + newpath)
+		else:
+			print "[MovieSelection]",path ,"play as dvd disc"
+			if os.path.exists("/media/bludisc"):
+				Console().ePopen("umount -f /media/bludisc")
+				Console().ePopen("rmdir /media/bludisc")
+			if self.playAsDVD(path):
+				return
+		self.movieSelected(current)
+
+	def IsBluray(self, path):
+		if os.path.exists(os.path.join(path, 'BDMV/index.bdmv')) or os.path.exists(os.path.join(path, 'BRD/BDMV/index.bdmv')):
+			return "blurayiso"
+		return ""
 
 	# Note: DVDBurn overrides this method, hence the itemSelected indirection.
-	def movieSelected(self):
-		current = self.getCurrent()
+	def movieSelected(self, current = None):
+		if not current:
+			current = self.getCurrent()
 		if current is not None:
 			self.saveconfig()
 			self.close(current)
@@ -1113,6 +1151,9 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 			self.callLater(self.abort)
 			return
 		self.saveconfig()
+		if os.path.exists("/media/bludisc"):
+			Console().ePopen("umount -f /media/bludisc")
+			Console().ePopen("rmdir /media/bludisc")
 		self.close(None)
 
 	def saveconfig(self):
@@ -1212,7 +1253,7 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 		if not res:
 			return
 		# serviceref must end with /
-		if not res.endswith('/'):
+		if not res[-1] == '/':
 			res += '/'
 		currentDir = config.movielist.last_videodir.value
 		if res != currentDir:
@@ -1373,7 +1414,7 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 		try:
 			path = os.path.join(config.movielist.last_videodir.value, name)
 			os.mkdir(path)
-			if not path.endswith('/'):
+			if not path[-1] == '/':
 				path += '/'
 			self.reloadList(sel = eServiceReference("2:0:1:0:0:0:0:0:0:0:" + path))
 		except OSError, e:
@@ -1491,7 +1532,7 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 			try:
 				base = os.path.split(path)[0]
 				for fn in os.listdir(base):
-					if not fn.startswith('.'): # Skip hidden things
+					if not fn[0] == '.': # Skip hidden things
 						d = os.path.join(base, fn)
 						if os.path.isdir(d) and (d not in inlist):
 							bookmarks.append((fn,d))
@@ -1676,7 +1717,7 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 		else:
 			if not args:
 				rec_filename = os.path.split(current.getPath())[1]
-				if rec_filename.endswith(".ts"): rec_filename = rec_filename[:-3]
+				if rec_filename[-3:] == ".ts": rec_filename = rec_filename[:-3]
 				for timer in NavigationInstance.instance.RecordTimer.timer_list:
 					if timer.isRunning() and not timer.justplay and rec_filename in timer.Filename:
 						choices = [
@@ -1693,7 +1734,7 @@ class MovieSelection(Screen, HelpableScreen, SelectionEventInfo, InfoBarBase):
 				try:
 					trash = Tools.Trashcan.createTrashFolder(cur_path)
 					# Also check whether we're INSIDE the trash, then it's a purge.
-					if cur_path.startswith(trash):
+					if cur_path[:len(trash)] == trash:
 						msg = _("Deleted items") + "\n"
 					else:
 						moveServiceFiles(current, trash, name, allowCopy=False)
