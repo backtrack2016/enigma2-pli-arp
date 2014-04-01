@@ -1811,6 +1811,7 @@ class InfoBarExtensions:
 		self["InstantExtensionsActions"] = HelpableActionMap(self, "InfobarExtensions",
 			{
 				"extensions": (self.showExtensionSelection, _("Show extensions...")),
+				"showPluginBrowser": (self.showPluginBrowser, _("Show the plugin browser..")),
 			}, 1) # lower priority
 
 	def addExtension(self, extension, key = None, type = EXTENSION_SINGLE):
@@ -1866,6 +1867,11 @@ class InfoBarExtensions:
 	def extensionCallback(self, answer):
 		if answer is not None:
 			answer[1][1]()
+
+	def showPluginBrowser(self):
+		from Screens.PluginBrowser import PluginBrowser
+		self.session.open(PluginBrowser)
+
 
 from Tools.BoundFunction import boundFunction
 import inspect
