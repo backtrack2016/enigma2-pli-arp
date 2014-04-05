@@ -325,11 +325,8 @@ class InfoBarShowHide(InfoBarScreenSaver):
 			self.show()
 			if self.secondInfoBarScreen:
 				self.secondInfoBarScreen.hide()
-		elif isStandardInfoBar(self):
-			if config.usage.show_second_infobar.value == "EPG":
-				self.showDefaultEPG()
-			elif config.usage.show_second_infobar.value == "Event":
-				self.openEventView()
+		elif isStandardInfoBar(self) and config.usage.show_second_infobar.value == "EPG":
+			self.showDefaultEPG()
 		elif self.secondInfoBarScreen and config.usage.show_second_infobar.value and not self.secondInfoBarScreen.shown:
 			self.secondInfoBarScreen.show()
 			self.startHideTimer()
@@ -1001,7 +998,7 @@ class InfoBarEPG:
 		if self.defaultEPGType is not None:
 			self.defaultEPGType()
 			return
-		self.showEventInfoPlugins()
+		self.openEventView()
 
 	def showSingleEPG(self):
 		if self.defaultGuideType is not None:
