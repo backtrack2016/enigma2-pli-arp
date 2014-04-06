@@ -941,12 +941,15 @@ class InfoBarEPG:
 		plugin(session = self.session, servicelist = self.servicelist)
 
 	def showEventInfoPlugins(self):
-		pluginlist = self.getEPGPluginList()
-		if pluginlist:
-			pluginlist.append((_("Select default EPG type..."), self.SelectDefaultInfoPlugin))
-			self.session.openWithCallback(self.EventInfoPluginChosen, ChoiceBox, title=_("Please choose an extension..."), list = pluginlist, skin_name = "EPGExtensionsList")
+		if self.getDefaultEPGtype() is not None:
+			self.showEventInfoPlugins = self.showDefaultEPG()
 		else:
-			self.openSingleServiceEPG()
+			pluginlist = self.getEPGPluginList()
+			if pluginlist:
+				pluginlist.append((_("Select default EPG type..."), self.SelectDefaultInfoPlugin))
+				self.session.openWithCallback(self.EventInfoPluginChosen, ChoiceBox, title=_("Please choose an extension..."), list = pluginlist, skin_name = "EPGExtensionsList")
+			else:
+				self.openSingleServiceEPG()
 
 	def EventInfoPluginChosen(self, answer):
 		if answer is not None:
