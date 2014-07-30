@@ -4109,9 +4109,6 @@ msgstr "Priekšroka AC3 skaņas celiņam"
 msgid "Prefer AC3+ track"
 msgstr "Priekšroka AC3+ skaņas celiņam"
 
-msgid "Prefer AC3+ track"
-msgstr ""
-
 msgid "Prefer audio track stored by service"
 msgstr "Katram kanālam saglabāt ieteicamo audio celiņu"
 
@@ -7778,12 +7775,6 @@ msgstr "izvēlieties CAIdus"
 
 msgid "select EPG..."
 msgstr "izvēlieties EPG..."
-
-msgid "select Info..."
-msgstr ""
-
-msgid "select menu entry"
-msgstr "norādīt izvēlnes ierakstu"
 
 msgid "select Info..."
 msgstr "izvēlieties info..."
