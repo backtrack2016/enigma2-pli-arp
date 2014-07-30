@@ -539,7 +539,7 @@ static void gif_load(Cfilepara* filepara)
 	int cmaps;
 	int extcode;
 
-	gft = DGifOpenFileName(filepara->file, &ErrorCode);
+	gft = DGifOpenFileName(filepara->file);
 	if (gft == NULL) {
 		eDebug("[Picload] Error open gif %i", ErrorCode);
 		return;
