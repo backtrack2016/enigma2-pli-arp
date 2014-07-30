@@ -22,7 +22,7 @@ class SleepTimerEdit(ConfigListScreen, Screen):
 		self.list = []
 		ConfigListScreen.__init__(self, self.list, session = session)
 		self.createSetup()
-		
+
 		self["setupActions"] = ActionMap(["SetupActions", "ColorActions"],
 		{
 		    "green": self.ok,
@@ -38,12 +38,16 @@ class SleepTimerEdit(ConfigListScreen, Screen):
 
 	def createSetup(self):
 		self.list = []
-		self.list.append(getConfigListEntry(_("Sleeptimer"),
+		if InfoBar.instance and InfoBar.instance.sleepTimer.isActive():
+			statusSleeptimerText = _("(activated +%d min)") % InfoBar.instance.sleepTimerState()
+		else:
+			statusSleeptimerText = _("(not activated)")
+		self.list.append(getConfigListEntry(_("Sleeptimer") + " " + statusSleeptimerText,
 			config.usage.sleep_timer,
-			_("Configure the duration in minutes and action, which could be shut down or standby, for the sleeptimer. Select this entry and click OK or green to start/stop the sleeptimer")))
+			_("Configure the duration in minutes for the sleeptimer. Select this entry and click OK or green to start/stop the sleeptimer")))
 		self.list.append(getConfigListEntry(_("Inactivity Sleeptimer"),
 			config.usage.inactivity_timer,
-			_("Configure the duration in hours and action, which could be shut down or standby, when the receiver is not controlled.")))
+			_("Configure the duration in hours the receiver should go to standby when the receiver is not controlled.")))
 		if int(config.usage.inactivity_timer.value):
 			self.list.append(getConfigListEntry(_("Specify timeframe to ignore inactivity sleeptimer"),
 				config.usage.inactivity_timer_blocktime,
@@ -58,26 +62,32 @@ class SleepTimerEdit(ConfigListScreen, Screen):
 		self.list.append(getConfigListEntry(_("Shutdown when in Standby"),
 			config.usage.standby_to_shutdown_timer,
 			_("Configure the duration when the receiver should go to shut down in case the receiver is in standby mode.")))
-
+		if int(config.usage.standby_to_shutdown_timer.value):
+			self.list.append(getConfigListEntry(_("Specify timeframe to ignore the shutdown in standby"),
+				config.usage.standby_to_shutdown_timer_blocktime,
+				_("When enabled you can specify a timeframe to ignore the shutdown timer when the receiver is in standby mode")))
+			if config.usage.standby_to_shutdown_timer_blocktime.value:
+				self.list.append(getConfigListEntry(_("Start time to ignore shutdown in standby"),
+					config.usage.standby_to_shutdown_timer_blocktime_begin,
+					_("Specify the start time to ignore the shutdown timer when the receiver is in standby mode")))
+				self.list.append(getConfigListEntry(_("End time to ignore shutdown in standby"),
+					config.usage.standby_to_shutdown_timer_blocktime_end,
+					_("Specify the end time to ignore the shutdown timer when the receiver is in standby mode")))
 		self["config"].list = self.list
 		self["config"].l.setList(self.list)
 
 	def ok(self):
-		config.usage.sleep_timer.save()
-		config.usage.inactivity_timer.save()
-		config.usage.inactivity_timer_blocktime.save()
-		config.usage.inactivity_timer_blocktime_begin.save()
-		config.usage.inactivity_timer_blocktime_end.save()
-		config.usage.standby_to_shutdown_timer.save()
-		if self.getCurrentEntry() == _("Sleeptimer"):
+		if self["config"].isChanged():
+			for x in self["config"].list:
+				x[1].save()
+		if self.getCurrentEntry().startswith(_("Sleeptimer")):
 			sleepTimer = config.usage.sleep_timer.value
-			if sleepTimer == "event_shutdown":
-				sleepTimer = -self.currentEventTime()
-			elif sleepTimer == "event_standby":
+			if sleepTimer == "event_standby":
 				sleepTimer = self.currentEventTime()
 			else:
 				sleepTimer = int(sleepTimer)
-			InfoBar.instance.setSleepTimer(sleepTimer)
+			if sleepTimer or not self.getCurrentEntry().endswith(_("(not activated)")):
+				InfoBar.instance.setSleepTimer(sleepTimer)
 			self.close(True)
 		self.close()
 

@@ -38,8 +38,12 @@ class GetEcmInfo:
 				if len(d) > 1:
 					info[d[0].strip()] = d[1].strip()
 			data = self.getText()
+			return True
 		else:
 			info['ecminterval0'] = int(time.time()-ecm_time+0.5)
+
+	def getEcm(self):
+		return (self.pollEcmData(), ecm)
 
 	def getEcmData(self):
 		self.pollEcmData()
@@ -124,7 +128,7 @@ class GetEcmInfo:
 				provid = info.get('prov', '0')
 			ecmpid = info.get('pid', '0')
 		except:
-			ecm = None
+			ecm = ''
 			self.textvalue = ""
 			decCI='0'
 			provid='0'

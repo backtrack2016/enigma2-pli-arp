@@ -1,6 +1,6 @@
 from enigma import eServiceCenter, eServiceReference, eTimer, pNavigation, getBestPlayableServiceReference, iPlayableService, eActionMap
 from Components.ParentalControl import parentalControl
-from Components.config import config
+from Components.config import config, configfile
 from Tools.BoundFunction import boundFunction
 from Tools.StbHardware import setFPWakeuptime, getFPWakeuptime, getFPWasTimerWakeup
 from Tools import Notifications
@@ -39,7 +39,8 @@ class Navigation:
 		if config.misc.RestartUI.value:
 			config.misc.RestartUI.value = False
 			config.misc.RestartUI.save()
-		elif config.usage.startup_to_standby.value:
+			configfile.save()
+		elif config.usage.startup_to_standby.value or self.__wasTimerWakeup:
 			Notifications.AddNotification(Screens.Standby.Standby)
 
 	def wasTimerWakeup(self):
@@ -62,7 +63,7 @@ class Navigation:
 		oldref = self.currentlyPlayingServiceOrGroup
 		if ref and oldref and ref == oldref and not forceRestart:
 			print "ignore request to play already running service(1)"
-			return 0
+			return 1
 		print "playing", ref and ref.toString()
 		if ref is None:
 			self.stopService()
@@ -76,7 +77,7 @@ class Navigation:
 				print "playref", playref
 				if playref and oldref and playref == oldref and not forceRestart:
 					print "ignore request to play already running service(2)"
-					return 0
+					return 1
 				if not playref or (checkParentalControl and not parentalControl.isServicePlayable(playref, boundFunction(self.playService, checkParentalControl = False))):
 					self.stopService()
 					return 0
