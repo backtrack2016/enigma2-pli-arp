@@ -383,7 +383,9 @@ static ePtr<eDVBFrontendParameters> parseFrontendData(const char* line, int vers
 			else
 				sscanf(line+2, "%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d:%d",
 					&frequency, &symbol_rate, &polarisation, &fec, &orbital_position,
-					&inversion, &flags, &system, &modulation, &rolloff, &pilot, &is_id, &pls_code, &pls_mode);
+					&inversion, &flags, &system, &modulation, &rolloff, &pilot,
+					&is_id, &pls_code, &pls_mode);
+
 			sat.frequency = frequency;
 			sat.symbol_rate = symbol_rate;
 			sat.polarisation = polarisation;

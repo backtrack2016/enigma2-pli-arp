@@ -1,3 +1,5 @@
+#include <linux/dvb/version.h>
+
 #include <lib/dvb/dvb.h>
 #include <lib/dvb/frontendparms.h>
 #include <lib/base/eerror.h>
@@ -544,7 +546,7 @@ int eDVBTerrestrialTransponderData::getTransmissionMode() const
 	{
 	case TRANSMISSION_MODE_2K: return eDVBFrontendParametersTerrestrial::TransmissionMode_2k;
 	case TRANSMISSION_MODE_8K: return eDVBFrontendParametersTerrestrial::TransmissionMode_8k;
-#if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 3
+#if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 6
 	case TRANSMISSION_MODE_4K: return eDVBFrontendParametersTerrestrial::TransmissionMode_4k;
 	case TRANSMISSION_MODE_1K: return eDVBFrontendParametersTerrestrial::TransmissionMode_1k;
 	case TRANSMISSION_MODE_16K: return eDVBFrontendParametersTerrestrial::TransmissionMode_16k;
@@ -565,7 +567,7 @@ int eDVBTerrestrialTransponderData::getGuardInterval() const
 	case GUARD_INTERVAL_1_16: return eDVBFrontendParametersTerrestrial::GuardInterval_1_16;
 	case GUARD_INTERVAL_1_8: return eDVBFrontendParametersTerrestrial::GuardInterval_1_8;
 	case GUARD_INTERVAL_1_4: return eDVBFrontendParametersTerrestrial::GuardInterval_1_4;
-#if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 3
+#if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 6
 	case GUARD_INTERVAL_1_128: return eDVBFrontendParametersTerrestrial::GuardInterval_1_128;
 	case GUARD_INTERVAL_19_128: return eDVBFrontendParametersTerrestrial::GuardInterval_19_128;
 	case GUARD_INTERVAL_19_256: return eDVBFrontendParametersTerrestrial::GuardInterval_19_256;
@@ -592,7 +594,7 @@ int eDVBTerrestrialTransponderData::getHierarchyInformation() const
 
 int eDVBTerrestrialTransponderData::getPlpId() const
 {
-	if (originalValues) return transponderParameters.plpid;
+	if (originalValues) return transponderParameters.plp_id;
 
 #if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 9
 	return getProperty(DTV_STREAM_ID);
@@ -613,13 +615,6 @@ int eDVBTerrestrialTransponderData::getSystem() const
 	case SYS_DVBT: return eDVBFrontendParametersTerrestrial::System_DVB_T;
 	case SYS_DVBT2: return eDVBFrontendParametersTerrestrial::System_DVB_T2;
 	}
-}
-
-int eDVBTerrestrialTransponderData::getPlpId() const
-{
-	if (originalValues) return transponderParameters.plp_id;
-
-	return getProperty(DTV_STREAM_ID);
 }
 
 DEFINE_REF(eDVBATSCTransponderData);

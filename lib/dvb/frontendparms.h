@@ -118,7 +118,7 @@ struct eDVBFrontendParametersTerrestrial
 	};
 
 	enum {
-		TransmissionMode_2k, TransmissionMode_8k, TransmissionMode_Auto, TransmissionMode_1k, TransmissionMode_4k, TransmissionMode_16k, TransmissionMode_32k
+		TransmissionMode_2k, TransmissionMode_8k, TransmissionMode_Auto, TransmissionMode_4k, TransmissionMode_1k, TransmissionMode_16k, TransmissionMode_32k
 	};
 
 	enum {
@@ -290,7 +290,6 @@ public:
 	int getHierarchyInformation() const;
 	int getPlpId() const;
 	int getSystem() const;
-	int getPlpId() const;
 };
 
 class eDVBATSCTransponderData : public eDVBTransponderData

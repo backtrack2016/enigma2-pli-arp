@@ -317,7 +317,6 @@ void eDVBServicePMTHandler::AITready(int error)
 
 void eDVBServicePMTHandler::OCready(int error)
 {
-/*
 	eDebug("OCready");
 	ePtr<eTable<OCSection> > ptr;
 	if (!m_OC.getCurrent(ptr))
@@ -327,9 +326,8 @@ void eDVBServicePMTHandler::OCready(int error)
 		{
 		}
 	}
-*/
 	/* for now, do not keep listening for table updates */
-//	m_OC.stop();
+	m_OC.stop();
 }
 
 void eDVBServicePMTHandler::getAITApplications(std::map<int, std::string> &aitlist)
@@ -582,6 +580,8 @@ int eDVBServicePMTHandler::getProgramInfo(program &program)
 				program.defaultSubtitleStream = autosub_dvb_hearing;
 			else if (autosub_dvb_normal != -1)
 				program.defaultSubtitleStream = autosub_dvb_normal;
+			else if (allow_hearingimpaired && autosub_dvb_hearing != -1)
+				program.defaultSubtitleStream = autosub_dvb_hearing;
 		}
 		if (program.defaultSubtitleStream != -1 && (equallanguagemask & (1<<(autosub_level-1))) == 0 && program.subtitleStreams[program.defaultSubtitleStream].language_code.compare(program.audioStreams[program.defaultAudioStream].language_code) == 0 )
 			program.defaultSubtitleStream = -1;

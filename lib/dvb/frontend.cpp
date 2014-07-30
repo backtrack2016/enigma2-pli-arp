@@ -1,3 +1,5 @@
+#include <linux/dvb/version.h>
+
 #include <lib/dvb/dvb.h>
 #include <lib/dvb/frontendparms.h>
 #include <lib/base/cfile.h>
@@ -363,7 +365,7 @@ RESULT eDVBFrontendParameters::calculateDifference(const iDVBFrontendParameters 
 				oterrestrial.code_rate_HP != eDVBFrontendParametersTerrestrial::FEC_Auto &&
 				terrestrial.code_rate_HP != eDVBFrontendParametersTerrestrial::FEC_Auto)
 				diff = 1 << 30;
-			else if (oterrestrial.plp_id != terrestrial.plp_id)
+			else if (exact && oterrestrial.plp_id != terrestrial.plp_id)
 				diff = 1 << 27;
 			else if (oterrestrial.system != terrestrial.system)
 				diff = 1 << 30;
@@ -1844,10 +1846,10 @@ void eDVBFrontend::setFrontend(bool recvEvents)
 			switch (parm.transmission_mode)
 			{
 				case eDVBFrontendParametersTerrestrial::TransmissionMode_2k: p[cmdseq.num].u.data = TRANSMISSION_MODE_2K; break;
+				case eDVBFrontendParametersTerrestrial::TransmissionMode_4k: p[cmdseq.num].u.data = TRANSMISSION_MODE_4K; break;
 				case eDVBFrontendParametersTerrestrial::TransmissionMode_8k: p[cmdseq.num].u.data = TRANSMISSION_MODE_8K; break;
 #if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 3
 				case eDVBFrontendParametersTerrestrial::TransmissionMode_1k: p[cmdseq.num].u.data = TRANSMISSION_MODE_1K; break;
-				case eDVBFrontendParametersTerrestrial::TransmissionMode_4k: p[cmdseq.num].u.data = TRANSMISSION_MODE_4K; break;
 				case eDVBFrontendParametersTerrestrial::TransmissionMode_16k: p[cmdseq.num].u.data = TRANSMISSION_MODE_16K; break;
 				case eDVBFrontendParametersTerrestrial::TransmissionMode_32k: p[cmdseq.num].u.data = TRANSMISSION_MODE_32K; break;
 #endif
@@ -2360,10 +2362,10 @@ int eDVBFrontend::isCompatibleWith(ePtr<iDVBFrontendParameters> &feparm)
 	}
 	else if (type == eDVBFrontend::feATSC)
 	{
-		eDVBFrontendParametersATSC parm;
-		bool can_handle_atsc, can_handle_dvbc_annex_b;
-		can_handle_dvbc_annex_b = supportsDeliverySystem(SYS_DVBC_ANNEX_B, true);
-		can_handle_atsc = supportsDeliverySystem(SYS_ATSC, true);
+                 eDVBFrontendParametersATSC parm;
+                 bool can_handle_atsc, can_handle_dvbc_annex_b;
+                 can_handle_dvbc_annex_b = supportsDeliverySystem(SYS_DVBC_ANNEX_B, true);
+                 can_handle_atsc = supportsDeliverySystem(SYS_ATSC, true);
 		if (feparm->getATSC(parm) < 0)
 		{
 			return 0;

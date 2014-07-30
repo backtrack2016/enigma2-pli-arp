@@ -918,7 +918,7 @@ void eServiceDVD::loadCuesheet()
 			if (stat(m_ref.path.c_str(), &st) == 0)
 			{
 				// DVD has no name and cannot be written. Use the mtime to generate something unique...
-				snprintf(filename, 128, "/home/root/dvd-%x.cuts", st.st_mtime);
+				snprintf(filename, 128, "/home/root/dvd-%ld.cuts", st.st_mtime);
 			}
 			else
 			{
@@ -1007,7 +1007,7 @@ void eServiceDVD::saveCuesheet()
 			if (stat(m_ref.path.c_str(), &st) == 0)
 			{
 				// DVD has no name and cannot be written. Use the mtime to generate something unique...
-				snprintf(filename, 128, "/home/root/dvd-%x.cuts", st.st_mtime);
+				snprintf(filename, 128, "/home/root/dvd-%ld.cuts", st.st_mtime);
 			}
 			else
 			{
