@@ -365,6 +365,8 @@ RESULT eDVBFrontendParameters::calculateDifference(const iDVBFrontendParameters 
 				diff = 1 << 30;
 			else if (oterrestrial.plp_id != terrestrial.plp_id)
 				diff = 1 << 27;
+			else if (oterrestrial.system != terrestrial.system)
+				diff = 1 << 30;
 			else
 				diff = abs(terrestrial.frequency - oterrestrial.frequency) / 1000;
 			return 0;
@@ -1194,7 +1196,7 @@ int eDVBFrontend::readInputpower()
 	sprintf(proc_name, "/proc/stb/fp/lnb_sense%d", m_slotid);
 	if (CFile::parseInt(&power, proc_name) == 0)
 		return power;
-	
+
 	// open front processor
 	int fp=::open("/dev/dbox/fp0", O_RDWR);
 	if (fp < 0)
@@ -1886,8 +1888,10 @@ void eDVBFrontend::setFrontend(bool recvEvents)
 			p[cmdseq.num].cmd = DTV_BANDWIDTH_HZ, p[cmdseq.num].u.data = parm.bandwidth, cmdseq.num++;
 			if (system == SYS_DVBT2)
 			{
-#if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 3
+#if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 9
 				p[cmdseq.num].cmd = DTV_STREAM_ID, p[cmdseq.num].u.data = parm.plp_id, cmdseq.num++;
+#elif DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 3
+				p[cmdseq.num].cmd = DTV_DVBT2_PLP_ID, p[cmdseq.num].u.data = parm.plp_id, cmdseq.num++;
 #endif
 			}
 		}
@@ -2313,7 +2317,7 @@ int eDVBFrontend::isCompatibleWith(ePtr<iDVBFrontendParameters> &feparm)
 		{
 			return 0;
 		}
-#ifdef SYS_DVBC_ANNEX_A
+#if DVB_API_VERSION > 5 || DVB_API_VERSION == 5 && DVB_API_VERSION_MINOR >= 6
 		can_handle_dvbc_annex_a = supportsDeliverySystem(SYS_DVBC_ANNEX_A, true);
 		can_handle_dvbc_annex_c = supportsDeliverySystem(SYS_DVBC_ANNEX_C, true);
 #else
@@ -2413,7 +2417,7 @@ void eDVBFrontend::setDeliverySystemWhitelist(const std::vector<fe_delivery_syst
 
 bool eDVBFrontend::setSlotInfo(int id, const char *descr, bool enabled, bool isDVBS2, int frontendid)
 {
-	if (frontendid < 0 || frontendid != m_dvbid) 
+	if (frontendid < 0 || frontendid != m_dvbid)
 	{
 		return false;
 	}

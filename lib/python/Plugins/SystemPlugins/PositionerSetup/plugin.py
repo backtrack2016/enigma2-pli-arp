@@ -98,12 +98,8 @@ class PositionerSetup(Screen):
 						cur = feInfo.getTransponderData(True)
 					del feInfo
 					del service
-					if hasattr(session, 'infobar'):
-						if session.infobar.servicelist and session.infobar.servicelist.dopipzap:
-							session.infobar.servicelist.togglePipzap()
-					if hasattr(session, 'pip'):
-						del session.pip
-					session.pipshown = False
+					from Screens.InfoBar import InfoBar
+					InfoBar.instance and hasattr(InfoBar.instance, "showPiP") and InfoBar.instance.showPiP()
 				if not self.openFrontend():
 					self.frontend = None # in normal case this should not happen
 					if hasattr(self, 'raw_channel'):
@@ -262,7 +258,7 @@ class PositionerSetup(Screen):
 		if orb_pos in self.availablesats:
 			lnbnum = int(self.advancedsats[orb_pos].lnb.value)
 			if not lnbnum:
-				for allsats in range(3601, 3604):
+				for allsats in range(3601, 3607):
 					lnbnum = int(self.advancedsats[allsats].lnb.value)
 					if lnbnum:
 						break
@@ -525,15 +521,18 @@ class PositionerSetup(Screen):
 				while(True):
 					if not len(self.allocatedIndices):
 						for sat in self.availablesats:
-							self.allocatedIndices.append(int(self.advancedsats[sat].rotorposition.value))
+							current_index = int(self.advancedsats[sat].rotorposition.value)
+							if current_index not in self.allocatedIndices:
+								self.allocatedIndices.append(current_index)
 						if len(self.allocatedIndices) == self.rotorPositions:
 							self.statusMsg(_("No free index available"), timeout = self.STATUS_MSG_TIMEOUT)
 							break
 					index = 1
-					for i in sorted(self.allocatedIndices):
-						if i != index:
-							break
-						index += 1
+					if len(self.allocatedIndices):
+						for i in sorted(self.allocatedIndices):
+							if i != index:
+								break
+							index += 1
 					if index <= self.rotorPositions:
 						self.positioner_storage.value = index
 						self["list"].invalidateCurrent()
@@ -671,7 +670,7 @@ class PositionerSetup(Screen):
 		else:
 			polarisation_text = ""
 		self["polarisation"].setText(polarisation_text)
-	
+
 	@staticmethod
 	def rotorCmd2Step(rotorCmd, stepsize):
 		return round(float(rotorCmd & 0xFFF) / 0x10 / stepsize) * (1 - ((rotorCmd & 0x1000) >> 11))

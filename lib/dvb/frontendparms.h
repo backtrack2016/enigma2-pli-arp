@@ -74,7 +74,7 @@ struct eDVBFrontendParametersCable
 		Inversion_Off, Inversion_On, Inversion_Unknown
 	};
 
-	/* 
+	/*
 	 * WARNING: do not change the order of these values, they are used to parse lamedb and cables.xml FEC fields.
 	 * The values are the same as those in eDVBFrontendParametersSatellite.
 	 */
@@ -104,7 +104,7 @@ struct eDVBFrontendParametersTerrestrial
 		Bandwidth_8MHz, Bandwidth_7MHz, Bandwidth_6MHz, Bandwidth_Auto, Bandwidth_5MHz, Bandwidth_1_712MHz, Bandwidth_10MHz
 	};
 
-	/* 
+	/*
 	 * WARNING: do not change the order of these values, they are used to parse lamedb and terrestrial.xml FEC fields.
 	 * The values are NOT the same as those in eDVBFrontendParametersSatellite/eDVBFrontendParametersCable
 	 * (and it's too late to fix this now, we would break backward compatibility)
@@ -114,7 +114,7 @@ struct eDVBFrontendParametersTerrestrial
 	};
 
 	enum {
-		System_DVB_T, System_DVB_T2
+		System_DVB_T_T2 = -1, System_DVB_T, System_DVB_T2
 	};
 
 	enum {
@@ -288,6 +288,7 @@ public:
 	int getTransmissionMode() const;
 	int getGuardInterval() const;
 	int getHierarchyInformation() const;
+	int getPlpId() const;
 	int getSystem() const;
 	int getPlpId() const;
 };

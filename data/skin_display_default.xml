@@ -113,6 +113,7 @@
 		</widget>
 		<widget source="session.CurrentService" render="Label" position="245,215" size="69,25" font="AmikoSkin_UserSkinFont;24" halign="right" >
 			<convert type="ServicePosition">Remaining,Negate</convert>
+
 		</widget>
 	</screen>
 	<!-- LCD/OLED StandBy-Clock-->

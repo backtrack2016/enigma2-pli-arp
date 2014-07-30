@@ -1,5 +1,6 @@
 from Tools.Profile import profile
 from Tools.BoundFunction import boundFunction
+from enigma import eServiceReference
 
 # workaround for required config entry dependencies.
 import Screens.MovieSelection
@@ -43,7 +44,7 @@ class InfoBar(InfoBarBase, InfoBarShowHide,
 	InfoBarPiP, InfoBarPlugins, InfoBarSubtitleSupport, InfoBarServiceErrorPopupSupport, InfoBarJobman, InfoBarPowersaver,
 	InfoBarAspectSelection, InfoBarSleepTimer,
 	InfoBarHDMI, Screen):
-	
+
 	ALLOW_SUSPEND = True
 	instance = None
 
@@ -58,9 +59,9 @@ class InfoBar(InfoBarBase, InfoBarShowHide,
 				"volumeUp": (self._volUp, _("volume up")),
 				"volumeDown": (self._volDown, _("volume down")),
 			}, prio=2)
-		
+
 		self.allowPiP = True
-		
+
 		for x in HelpableScreen, \
 				InfoBarBase, InfoBarShowHide, \
 				InfoBarNumberZap, InfoBarChannelSelection, InfoBarMenu, InfoBarEPG, InfoBarRdsDecoder, \
@@ -165,7 +166,7 @@ class InfoBar(InfoBarBase, InfoBarShowHide,
 
 	def showMovies(self, defaultRef=None):
 		self.lastservice = self.session.nav.getCurrentlyPlayingServiceOrGroup()
-		self.session.openWithCallback(self.movieSelected, Screens.MovieSelection.MovieSelection, defaultRef, timeshiftEnabled = self.timeshiftEnabled())
+		self.session.openWithCallback(self.movieSelected, Screens.MovieSelection.MovieSelection, defaultRef or eServiceReference(config.usage.last_movie_played.value), timeshiftEnabled = self.timeshiftEnabled())
 
 	def movieSelected(self, service):
 		ref = self.lastservice
@@ -183,10 +184,10 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, InfoBarMenu, InfoBarSeek, InfoBa
 
 	ENABLE_RESUME_SUPPORT = True
 	ALLOW_SUSPEND = True
-		
+
 	def __init__(self, session, service, slist=None, lastservice=None, infobar=None):
 		Screen.__init__(self, session)
-		
+
 		self["actions"] = HelpableActionMap(self, "MoviePlayerActions",
 			{
 				"InfoButtonPressed": (self.openEventView, _("open Info...")),
@@ -194,7 +195,9 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, InfoBarMenu, InfoBarSeek, InfoBa
 				"InfoButtonPressedLong": (self.showEventInfoPlugins, _("select Info...")),
 				"EPGButtonPressedLong": (self.showEventGuidePlugins,  _("select EPG...")),
 				"leavePlayer": (self.leavePlayer, _("leave movie player...")),
-				"leavePlayerOnExit": (self.leavePlayerOnExit, _("leave movie player..."))
+				"leavePlayerOnExit": (self.leavePlayerOnExit, _("leave movie player...")),
+				"channelUp": (self.channelUp, _("when PiPzap enabled zap channel up...")),
+				"channelDown": (self.channelDown, _("when PiPzap enabled zap channel down...")),
 			})
 
 		self["DirectionActions"] = HelpableActionMap(self, "DirectionActions",
@@ -204,7 +207,7 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, InfoBarMenu, InfoBarSeek, InfoBa
 			}, prio = -2)
 
 		self.allowPiP = True
-		
+
 		for x in HelpableScreen, InfoBarShowHide, InfoBarMenu, \
 				InfoBarBase, InfoBarSeek, InfoBarShowMovies, InfoBarInstantRecord, \
 				InfoBarAudioSelection, InfoBarNotifications, \
@@ -225,7 +228,11 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, InfoBarMenu, InfoBarSeek, InfoBa
 	def __onClose(self):
 		from Screens.MovieSelection import playlist
 		del playlist[:]
+		if not config.movielist.stop_service.value:
+			Screens.InfoBar.InfoBar.instance.callServiceStarted()
 		self.session.nav.playService(self.lastservice)
+		config.usage.last_movie_played.value = self.cur_service.toString()
+		config.usage.last_movie_played.save()
 
 	def handleLeave(self, how):
 		self.is_closing = True
@@ -240,6 +247,7 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, InfoBarMenu, InfoBarSeek, InfoBa
 					(_("Yes"), "quit"),
 					(_("Yes, returning to movie list"), "movielist"),
 					(_("Yes, and delete this movie"), "quitanddelete"),
+					(_("Yes, delete this movie and return to movie list"), "deleteandmovielist"),
 					(_("No"), "continue"),
 					(_("No, but restart from begin"), "restart")
 				)
@@ -263,7 +271,7 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, InfoBarMenu, InfoBarSeek, InfoBa
 				self.hidePipOnExitCallback(True)
 		elif config.usage.leave_movieplayer_onExit.value == "popup":
 			self.session.openWithCallback(self.leavePlayerOnExitCallback, MessageBox, _("Exit movie player?"), simple=True)
-		elif config.usage.leave_movieplayer_onExit.value == "without popup":	
+		elif config.usage.leave_movieplayer_onExit.value == "without popup":
 			self.leavePlayerOnExitCallback(True)
 
 	def leavePlayerOnExitCallback(self, answer):
@@ -279,14 +287,23 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, InfoBarMenu, InfoBarSeek, InfoBa
 		if answer:
 			self.leavePlayerConfirmed((True, "quitanddeleteconfirmed"))
 
+	def deleteAndMovielistConfirmed(self, answer):
+		if answer:
+			self.leavePlayerConfirmed((True, "deleteandmovielistconfirmed"))
+
+	def movielistAgain(self):
+		from Screens.MovieSelection import playlist
+		del playlist[:]
+		self.leavePlayerConfirmed((True, "movielist"))
+
 	def leavePlayerConfirmed(self, answer):
 		answer = answer and answer[1]
 		if answer is None:
 			return
-		if answer in ("quitanddelete", "quitanddeleteconfirmed"):
+		if answer in ("quitanddelete", "quitanddeleteconfirmed", "deleteandmovielist", "deleteandmovielistconfirmed"):
 			ref = self.session.nav.getCurrentlyPlayingServiceOrGroup()
 			serviceHandler = enigma.eServiceCenter.getInstance()
-			if answer == "quitanddelete":
+			if answer in ("quitanddelete", "deleteandmovielist"):
 				msg = ''
 				if config.usage.movielist_trashcan.value:
 					import Tools.Trashcan
@@ -294,7 +311,10 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, InfoBarMenu, InfoBarSeek, InfoBa
 						trash = Tools.Trashcan.createTrashFolder(ref.getPath())
 						Screens.MovieSelection.moveServiceFiles(ref, trash)
 						# Moved to trash, okay
-						self.close()
+						if answer == "quitanddelete":
+							self.close()
+						else:
+							self.movielistAgain()
 						return
 					except Exception, e:
 						print "[InfoBar] Failed to move to .Trash folder:", e
@@ -302,13 +322,18 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, InfoBarMenu, InfoBarSeek, InfoBa
 				info = serviceHandler.info(ref)
 				name = info and info.getName(ref) or _("this recording")
 				msg += _("Do you really want to delete %s?") % name
-				self.session.openWithCallback(self.deleteConfirmed, MessageBox, msg)
+				if answer == "quitanddelete":
+					self.session.openWithCallback(self.deleteConfirmed, MessageBox, msg)
+				elif answer == "deleteandmovielist":
+					self.session.openWithCallback(self.deleteAndMovielistConfirmed, MessageBox, msg)
 				return
 
-			elif answer == "quitanddeleteconfirmed":
+			elif answer in ("quitanddeleteconfirmed", "deleteandmovielistconfirmed"):
 				offline = serviceHandler.offlineOperations(ref)
 				if offline.deleteFromDisk(0):
 					self.session.openWithCallback(self.close, MessageBox, _("You cannot delete this!"), MessageBox.TYPE_ERROR)
+					if answer == "deleteandmovielistconfirmed":
+						self.movielistAgain()
 					return
 
 		if answer in ("quit", "quitanddeleteconfirmed"):
@@ -318,7 +343,7 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, InfoBarMenu, InfoBarSeek, InfoBa
 			self.setSeekState(self.SEEK_STATE_PLAY)
 #+++<
 			self.close()
-		elif answer == "movielist":
+		elif answer in ("movielist", "deleteandmovielistconfirmed"):
 			ref = self.session.nav.getCurrentlyPlayingServiceOrGroup()
 			self.returning = True
 			self.session.openWithCallback(self.movieSelected, Screens.MovieSelection.MovieSelection, ref)
@@ -328,6 +353,8 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, InfoBarMenu, InfoBarSeek, InfoBa
 			self.setSeekState(self.SEEK_STATE_PLAY)
 #+++<
 			self.session.nav.stopService()
+			if not config.movielist.stop_service.value:
+				self.session.nav.playService(self.lastservice)
 		elif answer == "restart":
 			self.doSeek(0)
 			self.setSeekState(self.SEEK_STATE_PLAY)
@@ -364,66 +391,102 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, InfoBarMenu, InfoBarSeek, InfoBa
 
 	def up(self):
 		slist = self.servicelist
-		if slist and slist.dopipzap:
-			if "keep" not in config.usage.servicelist_cursor_behavior.value:
-				slist.moveUp()
-			self.session.execDialog(slist)
+		if self.servicelist and self.servicelist.dopipzap:
+			if config.usage.oldstyle_zap_controls.value:
+				self.zapDown()
+			else:
+				self.switchChannelUp()
 		else:
 			self.showMovies()
 
 	def down(self):
-		slist = self.servicelist
-		if slist and slist.dopipzap:
-			if "keep" not in config.usage.servicelist_cursor_behavior.value:
-				slist.moveDown()
-			self.session.execDialog(slist)
+		if self.servicelist and self.servicelist.dopipzap:
+			if config.usage.oldstyle_zap_controls.value:
+				self.zapUp()
+			else:
+				self.switchChannelDown()
 		else:
 			self.showMovies()
 
 	def right(self):
-		# XXX: gross hack, we do not really seek if changing channel in pip :-)
-		slist = self.servicelist
-		if slist and slist.dopipzap:
-			# XXX: We replicate InfoBarChannelSelection.zapDown here - we shouldn't do that
-			if slist.inBouquet():
-				prev = slist.getCurrentSelection()
-				if prev:
-					prev = prev.toString()
-					while True:
-						if config.usage.quickzap_bouquet_change.value and slist.atEnd():
-							slist.nextBouquet()
-						else:
-							slist.moveDown()
-						cur = slist.getCurrentSelection()
-						if not cur or (not (cur.flags & 64)) or cur.toString() == prev:
-							break
+		if self.servicelist and self.servicelist.dopipzap:
+			if config.usage.oldstyle_zap_controls.value:
+				self.switchChannelDown()
 			else:
-				slist.moveDown()
-			slist.zap(enable_pipzap = True)
+				self.zapDown()
 		else:
 			InfoBarSeek.seekFwd(self)
 
 	def left(self):
-		slist = self.servicelist
-		if slist and slist.dopipzap:
-			# XXX: We replicate InfoBarChannelSelection.zapUp here - we shouldn't do that
-			if slist.inBouquet():
-				prev = slist.getCurrentSelection()
-				if prev:
-					prev = prev.toString()
-					while True:
-						if config.usage.quickzap_bouquet_change.value:
-							if slist.atBegin():
-								slist.prevBouquet()
-						slist.moveUp()
-						cur = slist.getCurrentSelection()
-						if not cur or (not (cur.flags & 64)) or cur.toString() == prev:
-							break
+		if self.servicelist and self.servicelist.dopipzap:
+			if config.usage.oldstyle_zap_controls.value:
+				self.switchChannelUp()
 			else:
-				slist.moveUp()
-			slist.zap(enable_pipzap = True)
+				self.zapUp()
 		else:
 			InfoBarSeek.seekBack(self)
+
+	def channelUp(self):
+		if config.usage.zap_with_ch_buttons.value and self.servicelist.dopipzap:
+			self.zapDown()
+		else:
+			return 0
+
+	def channelDown(self):
+		if config.usage.zap_with_ch_buttons.value and self.servicelist.dopipzap:
+			self.zapUp()
+		else:
+			return 0
+
+	def switchChannelDown(self):
+		if "keep" not in config.usage.servicelist_cursor_behavior.value:
+			self.servicelist.moveDown()
+		self.session.execDialog(self.servicelist)
+
+	def switchChannelUp(self):
+		if "keep" not in config.usage.servicelist_cursor_behavior.value:
+			self.servicelist.moveUp()
+		self.session.execDialog(self.servicelist)
+
+	def zapUp(self):
+		slist = self.servicelist
+		if slist.inBouquet():
+			prev = slist.getCurrentSelection()
+			if prev:
+				prev = prev.toString()
+				while True:
+					if config.usage.quickzap_bouquet_change.value:
+						if slist.atBegin():
+							slist.prevBouquet()
+					slist.moveUp()
+					cur = slist.getCurrentSelection()
+					if cur:
+						playable = not (cur.flags & (64|8)) and hasattr(self.session, "pip") and self.session.pip.isPlayableForPipService(cur)
+						if cur.toString() == prev or playable:
+							break
+		else:
+			slist.moveUp()
+		slist.zap(enable_pipzap = True)
+
+	def zapDown(self):
+		slist = self.servicelist
+		if slist.inBouquet():
+			prev = slist.getCurrentSelection()
+			if prev:
+				prev = prev.toString()
+				while True:
+					if config.usage.quickzap_bouquet_change.value and slist.atEnd():
+						slist.nextBouquet()
+					else:
+						slist.moveDown()
+					cur = slist.getCurrentSelection()
+					if cur:
+						playable = not (cur.flags & (64|8)) and hasattr(self.session, "pip") and self.session.pip.isPlayableForPipService(cur)
+						if cur.toString() == prev or playable:
+							break
+		else:
+			slist.moveDown()
+		slist.zap(enable_pipzap = True)
 
 	def showPiP(self):
 		slist = self.servicelist
@@ -506,7 +569,7 @@ class MoviePlayer(InfoBarBase, InfoBarShowHide, InfoBarMenu, InfoBarSeek, InfoBa
 		Notifications.AddPopup(text = _("%s/%s: %s") % (index, n, self.ref2HumanName(ref)), type = MessageBox.TYPE_INFO, timeout = 5)
 
 	def ref2HumanName(self, ref):
-		return enigma.eServiceCenter.getInstance().info(ref).getName(ref)
+		return enigma.eServiceCenter.getInstance().info(ref).getName(ref)		
 
 	def sleepTimer(self):
 		from Screens.SleepTimerEdit import SleepTimerEdit

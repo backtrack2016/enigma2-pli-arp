@@ -55,6 +55,14 @@ class ServiceList(HTMLComponent, GUIComponent):
 		if pic:
 			self.l.setPixmap(self.l.picServiceGroup, pic)
 
+		pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/icon_crypt.png"))
+		if pic:
+			self.l.setPixmap(self.l.picCrypto, pic)
+
+		pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/icons/record.png"))
+		if pic:
+			self.l.setPixmap(self.l.picRecord, pic)
+
 		self.root = None
 		self.mode = self.MODE_NORMAL
 		self.ItemHeight = 28
@@ -94,6 +102,8 @@ class ServiceList(HTMLComponent, GUIComponent):
 					self.l.setColor(eListboxServiceContent.serviceEventProgressbarBorderColor, parseColor(value))
 				elif attrib == "colorEventProgressbarBorderSelected":
 					self.l.setColor(eListboxServiceContent.serviceEventProgressbarBorderColorSelected, parseColor(value))
+				elif attrib == "colorServiceRecorded":
+					self.l.setColor(eListboxServiceContent.serviceRecorded, parseColor(value))
 				elif attrib == "picServiceEventProgressbar":
 					pic = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, value))
 					if pic:
@@ -106,6 +116,10 @@ class ServiceList(HTMLComponent, GUIComponent):
 					self.ServiceInfoFont = parseFont(value, ((1,1),(1,1)))
 				elif attrib == "serviceNumberFont":
 					self.ServiceNumberFont = parseFont(value, ((1,1),(1,1)))
+				elif attrib == "progressbarHeight":
+					self.l.setProgressbarHeight(int(value))
+				elif attrib == "progressbarBorderWidth":
+					self.l.setProgressbarBorderWidth(int(value))
 				else:
 					attribs.append((attrib, value))
 		self.skinAttributes = attribs
@@ -132,7 +146,7 @@ class ServiceList(HTMLComponent, GUIComponent):
 			if self.serviceList:
 				revert_mode = config.servicelist.lastmode.value
 				revert_root = self.getRoot()
-				self.serviceList.setTvMode()
+				self.serviceList.setModeTv()
 				bouquets = self.serviceList.getBouquetList()
 				for bouquet in bouquets:
 					self.serviceList.enterUserbouquet(bouquet[1])
@@ -140,7 +154,7 @@ class ServiceList(HTMLComponent, GUIComponent):
 						config.servicelist.lastmode.save()
 						self.serviceList.saveChannel(ref)
 						return True
-				self.serviceList.setRadioMode()
+				self.serviceList.setModeRadio()
 				bouquets = self.serviceList.getBouquetList()
 				for bouquet in bouquets:
 					self.serviceList.enterUserbouquet(bouquet[1])
@@ -200,7 +214,7 @@ class ServiceList(HTMLComponent, GUIComponent):
 		return self.instance.getCurrentIndex()
 
 	GUI_WIDGET = eListbox
-	
+
 	def postWidgetCreate(self, instance):
 		instance.setWrapAround(True)
 		instance.setContent(self.l)
@@ -242,7 +256,7 @@ class ServiceList(HTMLComponent, GUIComponent):
 		self.l.setRoot(self.root, False)
 		self.l.sort()
 		self.instance.moveSelectionTo(index)
-	
+
 	def removeCurrent(self):
 		self.l.removeCurrent()
 
@@ -284,7 +298,7 @@ class ServiceList(HTMLComponent, GUIComponent):
 		self.mode = mode
 		self.l.setItemHeight(self.ItemHeight)
 		self.l.setVisualMode(eListboxServiceContent.visModeComplex)
-		
+
 		if config.usage.service_icon_enable.value:
 			self.l.setGetPiconNameFunc(getPiconName)
 		else:
@@ -319,3 +333,6 @@ class ServiceList(HTMLComponent, GUIComponent):
 			self.l.setElementFont(self.l.celServiceEventProgressbar, self.ServiceInfoFont)
 		self.l.setHideNumberMarker(config.usage.hide_number_markers.value)
 		self.l.setServiceTypeIconMode(int(config.usage.servicetype_icon_mode.value))
+		self.l.setCryptoIconMode(int(config.usage.crypto_icon_mode.value))
+		self.l.setRecordIndicatorMode(int(config.usage.record_indicator_mode.value))
+		self.l.setColumnWidth(int(config.usage.servicelist_column.value))

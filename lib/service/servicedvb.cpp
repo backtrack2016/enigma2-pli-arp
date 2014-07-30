@@ -273,6 +273,7 @@ int eStaticServiceDVBBouquetInformation::isPlayable(const eServiceReference &ref
 		if (streamable_service)
 		{
 			m_playable_service = streamable_service;
+			return 1;
 		}
 	}
 	m_playable_service = eServiceReference();
@@ -3410,7 +3411,7 @@ void eDVBServicePlay::setAC3Delay(int delay)
 {
 	if (m_dvb_service)
 		m_dvb_service->setCacheEntry(eDVBService::cAC3DELAY, delay ? delay : -1);
-	if (m_decoder) 
+	if (m_decoder)
 	{
 		m_decoder->setAC3Delay(delay + eConfigManager::getConfigIntValue("config.av.generalAC3delay"));
 	}
@@ -3420,7 +3421,7 @@ void eDVBServicePlay::setPCMDelay(int delay)
 {
 	if (m_dvb_service)
 		m_dvb_service->setCacheEntry(eDVBService::cPCMDELAY, delay ? delay : -1);
-	if (m_decoder) 
+	if (m_decoder)
 	{
 		m_decoder->setPCMDelay(delay + eConfigManager::getConfigIntValue("config.av.generalPCMdelay"));
 	}
