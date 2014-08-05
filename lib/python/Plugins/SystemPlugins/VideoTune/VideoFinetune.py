@@ -30,7 +30,6 @@ class OverscanTestScreen(Screen):
 			"3": self.keyNumber,
 			"4": self.keyNumber,
 			"5": self.keyNumber,
-			"7": self.keyNumber,
 			"ok": self.ok,
 			"cancel": self.cancel
 		})
@@ -64,7 +63,6 @@ class FullHDTestScreen(OverscanTestScreen):
 			"3": self.keyNumber,
 			"4": self.keyNumber,
 			"5": self.keyNumber,
-			"6": self.keyNumber,
 			"ok": self.ok,
 			"cancel": self.cancel
 		})
@@ -100,7 +98,6 @@ class VideoFinetune(Screen):
 			"4": self.keyNumber,
 			"5": self.keyNumber,
 			"6": self.keyNumber,
-			"7": self.keyNumber,
 			"ok": self.callNext,
 			"cancel": self.close,
 		})
@@ -329,7 +326,7 @@ class VideoFinetune(Screen):
 		c.flush()
 
 	def testpic_overscan(self):
-		self.next = self.testpic_fullhd
+		self.next = self.testpic_brightness
 		self.hide()
 		self.session.openWithCallback(self.testpicCallback, OverscanTestScreen)
 
