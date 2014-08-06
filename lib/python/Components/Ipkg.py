@@ -10,10 +10,11 @@ def opkgExtraDestinations():
 	return ''.join([" --dest %s:%s" % (i,i) for i in opkgDestinations])
 
 def opkgAddDestination(mountpoint):
-	global opkgDestinations
-	if mountpoint not in opkgDestinations:
-		opkgDestinations.append(mountpoint)
-		print "[Ipkg] Added to OPKG destinations:", mountpoint
+	pass
+	#global opkgDestinations
+	#if mountpoint not in opkgDestinations:
+		#opkgDestinations.append(mountpoint)
+		#print "[Ipkg] Added to OPKG destinations:", mountpoint
 
 def onPartitionChange(why, part):
 	global opkgDestinations
