@@ -116,7 +116,7 @@ class Harddisk:
 		elif self.type == DEVTYPE_DEVFS:
 			ide_cf = self.device[:2] == "hd" and "host0" not in self.dev_path
 
-		internal = "pci" in self.phys_path
+		internal = "pci" in self.phys_path or "ahci" in self.phys_path
 
 		if ide_cf:
 			ret = "External (CF)"
@@ -900,4 +900,12 @@ class MkfsTask(Task.LoggingTask):
 
 
 harddiskmanager = HarddiskManager()
+
+def internalHDDNotSleeping():
+	if harddiskmanager.HDDCount():
+		for hdd in harddiskmanager.HDDList():
+			if ("pci" in hdd[1].phys_path or "ahci" in hdd[1].phys_path) and hdd[1].max_idle_time and not hdd[1].isSleeping():
+				return True
+	return False
+
 SystemInfo["ext4"] = isFileSystemSupported("ext4")
