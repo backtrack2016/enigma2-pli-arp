@@ -530,7 +530,7 @@ static void gif_load(Cfilepara* filepara)
 	int cmaps;
 	int extcode;
 
-	gft = DGifOpenFileName(filepara->file);
+	gft = DGifOpenFileName(filepara->file, &ErrorCode);
 	if (gft == NULL) {
 		eDebug("[Picload] Error open gif %i", ErrorCode);
 		return;
@@ -603,11 +603,11 @@ static void gif_load(Cfilepara* filepara)
 	}
 	while (rt != TERMINATE_RECORD_TYPE);
 
-	DGifCloseFile(gft);
+	DGifCloseFile(gft, &ErrorCode);
 	return;
 ERROR_R:
 	eDebug("[Picload] <Error gif>");
-	DGifCloseFile(gft);
+	DGifCloseFile(gft, &ErrorCode);
 }
 
 //---------------------------------------------------------------------------------------------
