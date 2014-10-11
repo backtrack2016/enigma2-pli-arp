@@ -211,14 +211,6 @@ data/skin_default/icons/Makefile
 data/skin_default/buttons/Makefile
 data/skin_default/spinner/Makefile
 data/skin_default/LCDIcons/Makefile
-data/Magic/Makefile
-data/Magic/border/Makefile
-data/Magic/buttons/Makefile
-data/Magic/dvr/Makefile
-data/Magic/infobar/Makefile
-data/Magic/logos/Makefile
-data/Magic/menu/Makefile
-data/Magic/window/Makefile
 include/Makefile
 lib/Makefile
 lib/base/eenv.cpp
