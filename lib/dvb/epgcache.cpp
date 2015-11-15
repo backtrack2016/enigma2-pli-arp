@@ -268,8 +268,11 @@ const eit_event_struct* eventData::get() const
 {
 	unsigned int pos = 12;
 	memcpy(data, rawEITdata, 10);
+	unsigned int descriptors_length = 0;
 	for (uint8_t i = 0; i < n_crc; ++i)
+	{
 		DescriptorMap::iterator it = descriptors.find(crc_list[i]);
+		if (it != descriptors.end())
 		{
 			unsigned int b = it->second.data[1] + 2;
 			if (pos + b < sizeof(data))

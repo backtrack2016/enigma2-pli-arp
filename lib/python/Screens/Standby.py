@@ -10,7 +10,6 @@ import RecordTimer
 from enigma import eDVBVolumecontrol, eTimer, eDVBLocalTimeHandler, eServiceReference
 from subprocess import call
 from time import time, localtime
-from subprocess import call
 
 inStandby = None
 

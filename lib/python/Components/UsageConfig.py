@@ -59,10 +59,6 @@ def InitUsageConfig():
 	config.usage.show_second_infobar = ConfigSelection(default = None, choices = [(None, _("None"))] + choicelist + [("EPG",_("EPG")), ("Event",_("Event view"))])
 	config.usage.infobar_frontend_source = ConfigSelection(default = "tuner", choices = [("settings", _("Settings")), ("tuner", _("Tuner"))])
 	config.usage.oldstyle_zap_controls = ConfigYesNo(default = False)
-	config.usage.leftright_zap_controls = ConfigSelection(default = "standard", choices = [
-		("standard", _("Standard")),
-		("neutrino", _("Neutrino")),
-		("volume", _("Volume"))])
 	config.usage.oldstyle_channel_select_controls = ConfigYesNo(default = False)
 	config.usage.zap_with_ch_buttons = ConfigYesNo(default = False)
 	config.usage.ok_is_channelselection = ConfigYesNo(default = False)
@@ -237,6 +233,7 @@ def InitUsageConfig():
 	SystemInfo["DVB-C_priority_tuner_available"] = len(dvbc_nims) > 3 and (len(dvbs_nims) > 2 or len(dvbt_nims) > 2)
 
 	config.misc.disable_background_scan = ConfigYesNo(default = False)
+	config.usage.show_event_progress_in_servicelist = ConfigSelection(default = 'barright', choices = [
 		('barleft', _("Progress bar left")),
 		('barright', _("Progress bar right")),
 		('percleft', _("Percentage left")),

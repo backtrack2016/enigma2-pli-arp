@@ -879,7 +879,7 @@ class ScanSetup(ConfigListScreen, Screen, CableTransponderSearchSupport, Terrest
 				defaultTer["hierarchy"] = frontendData.get("hierarchy_information", eDVBFrontendParametersTerrestrial.Hierarchy_Auto)
 				defaultTer["system"] = frontendData.get("system", eDVBFrontendParametersTerrestrial.System_DVB_T)
 				if defaultTer["system"] == eDVBFrontendParametersTerrestrial.System_DVB_T2:
-						defaultTer["plp_id"] = frontendData.get("plp_id", 0)
+					defaultTer["plp_id"] = frontendData.get("plp_id", 0)
 
 		self.scan_sat = ConfigSubsection()
 		self.scan_cab = ConfigSubsection()

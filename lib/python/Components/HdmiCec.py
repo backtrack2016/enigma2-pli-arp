@@ -8,7 +8,6 @@ from Screens import Standby
 from Tools import Directories, Notifications
 from time import time
 import xml.etree.cElementTree
-import xml.etree.cElementTree
 
 config.hdmicec = ConfigSubsection()
 config.hdmicec.enabled = ConfigYesNo(default = True)

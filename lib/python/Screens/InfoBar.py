@@ -7,7 +7,6 @@ import Screens.MovieSelection
 
 from Screen import Screen
 from Screens.MessageBox import MessageBox
-from Components.VolumeControl import VolumeControl
 
 profile("LOAD:enigma")
 import enigma

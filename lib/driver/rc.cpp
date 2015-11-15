@@ -164,8 +164,6 @@ bool eRCInputEventDriver::isKeyboard()
 #if defined (VUPLUS_RC_WORKAROUND) || (ENABLE_SPARK) || (ENABLE_SPARK7162)
 	return(false);
 #else
-		return false;
-
 	/* check whether the input device has KEY_A, in which case we assume it is a keyboard */
 	return hasCap(keyCaps, KEY_A);
 #endif

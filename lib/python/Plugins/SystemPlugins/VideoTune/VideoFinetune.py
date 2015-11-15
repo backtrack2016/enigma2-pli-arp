@@ -30,6 +30,7 @@ class OverscanTestScreen(Screen):
 			"3": self.keyNumber,
 			"4": self.keyNumber,
 			"5": self.keyNumber,
+			"7": self.keyNumber,
 			"ok": self.ok,
 			"cancel": self.cancel
 		})

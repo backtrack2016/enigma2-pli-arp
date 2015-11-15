@@ -42,9 +42,6 @@ class RemainingToText(Converter, object):
 				if tsecs > duration:
 					tsecs = duration
 
-		if self.type == self.NO_SECONDS:
-			tsecs += 59
-
 				seconds = tsecs % 60
 				minutes = tsecs / 60 % 60
 				hours = tsecs / 3600

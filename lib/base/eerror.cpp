@@ -139,11 +139,7 @@ void eDebug(const char* fmt, ...)
 	singleLock s(DebugLock);
 	logOutput(lvlDebug, std::string(buf) + "\n");
 	if (logOutputConsole)
-	{
-	    openlog("enigma2", 0, LOG_USER);
-	    syslog(LOG_NOTICE, "%s\n",buf);
-	    closelog();
-	}
+		fprintf(stderr, "%s\n", buf);
 }
 
 void eDebugNoNewLineStart(const char* fmt, ...)
@@ -179,12 +175,7 @@ void eDebugNoNewLine(const char* fmt, ...)
 	singleLock s(DebugLock);
 	logOutput(lvlDebug, std::string(buf));
 	if (logOutputConsole)
-	{
-	    openlog("enigma2", 0, LOG_USER);
-	    syslog(LOG_NOTICE, "%s",buf);
-	    closelog();
-	}
-
+		fprintf(stderr, "%s\n", buf);
 }
 
 void eWarning(const char* fmt, ...)
@@ -207,11 +198,7 @@ void eWarning(const char* fmt, ...)
 	singleLock s(DebugLock);
 	logOutput(lvlWarning, std::string(buf) + "\n");
 	if (logOutputConsole)
-	{
-	    openlog("enigma2", 0, LOG_USER);
-	    syslog(LOG_WARNING, "%s\n",buf);
-	    closelog();
-	}
+		fprintf(stderr, "%s\n", buf);
 }
 #endif // DEBUG
 

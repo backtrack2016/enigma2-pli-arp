@@ -97,7 +97,6 @@ int eDVBAudio::startPid(int pid, int type)
 		}
 		eDebugNoNewLine("ok\n");
 #endif
-#endif
 	}
 
 	if (m_fd >= 0)

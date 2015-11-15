@@ -314,6 +314,19 @@ RESULT eDVBFrontendParameters::calculateDifference(const iDVBFrontendParameters 
 			}
 			return 0;
 		}
+		case iDVBFrontend::feCable:
+		{
+			eDVBFrontendParametersCable ocable;
+			if (parm->getDVBC(ocable))
+				return -2;
+
+			if (exact && cable.modulation != ocable.modulation
+				&& cable.modulation != eDVBFrontendParametersCable::Modulation_Auto
+				&& ocable.modulation != eDVBFrontendParametersCable::Modulation_Auto)
+				diff = 1 << 29;
+			else if (exact && cable.fec_inner != ocable.fec_inner && cable.fec_inner != eDVBFrontendParametersCable::FEC_Auto && ocable.fec_inner != eDVBFrontendParametersCable::FEC_Auto)
+				diff = 1 << 27;
+			else
 			{
 				diff = abs(cable.frequency - ocable.frequency);
 				diff += abs(cable.symbol_rate - ocable.symbol_rate);
@@ -386,6 +399,33 @@ RESULT eDVBFrontendParameters::getHash(unsigned long &hash) const
 {
 	switch (m_type)
 	{
+		case iDVBFrontend::feSatellite:
+		{
+			hash = (sat.orbital_position << 16);
+			hash |= ((sat.frequency/1000)&0xFFFF)|((sat.polarisation&1) << 15);
+			return 0;
+		}
+		case iDVBFrontend::feCable:
+		{
+			hash = 0xFFFF0000;
+			hash |= (cable.frequency/1000)&0xFFFF;
+			return 0;
+		}
+		case iDVBFrontend::feTerrestrial:
+		{
+			hash = 0xEEEE0000;
+			hash |= (terrestrial.frequency/1000000)&0xFFFF;
+			return 0;
+		}
+		case iDVBFrontend::feATSC:
+		{
+			hash = 0xDDDD0000;
+			hash |= (atsc.frequency/1000)&0xFFFF;
+			return 0;
+		}
+		default:
+		{
+			return -1;
 		}
 	}
 }

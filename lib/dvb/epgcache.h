@@ -12,8 +12,6 @@
 #include <vector>
 #include <list>
 #include <tr1/unordered_map>
-#include <tr1/unordered_map>
-#include <tr1/unordered_set>
 
 #include <errno.h>
 

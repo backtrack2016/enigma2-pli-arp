@@ -78,13 +78,6 @@ typedef enum
 #endif
 /**/
 
-#else
-void ep3Blit(){
-	fbClass *fb = fbClass::getInstance();
-	fb->blit();
-}
-#endif
-
 eServiceFactoryMP3::eServiceFactoryMP3()
 {
 	ePtr<eServiceCenter> sc;
@@ -363,7 +356,6 @@ int eStreamBufferInfo::getBufferSize() const
 	return bufferSize;
 }
 
-#ifndef ENABLE_LIBEPLAYER3
 DEFINE_REF(eServiceMP3InfoContainer);
 
 eServiceMP3InfoContainer::eServiceMP3InfoContainer()
@@ -414,13 +406,10 @@ void eServiceMP3InfoContainer::setBuffer(GstBuffer *buffer)
 	bufferSize = map.size;
 #endif
 }
-#endif
 
 // eServiceMP3
-#ifndef ENABLE_LIBEPLAYER3
 int eServiceMP3::ac3_delay = 0,
     eServiceMP3::pcm_delay = 0;
-#endif
 
 eServiceMP3::eServiceMP3(eServiceReference ref):
 	m_nownext_timer(eTimer::create(eApp)),
@@ -434,11 +423,9 @@ eServiceMP3::eServiceMP3(eServiceReference ref):
 	m_stream_tags = 0;
 	m_currentAudioStream = -1;
 	m_currentSubtitleStream = -1;
-	m_cachedSubtitleStream = -1; /* report the first subtitle stream to be 'cached'. TODO: use an actual cache. */
+	m_cachedSubtitleStream = 0; /* report the first subtitle stream to be 'cached'. TODO: use an actual cache. */
 	m_subtitle_widget = 0;
-#ifndef ENABLE_LIBEPLAYER3
 	m_currentTrickRatio = 1.0;
-#endif
 	m_buffer_size = 5 * 1024 * 1024;
 	m_ignore_buffering_messages = 0;
 	m_is_live = false;
@@ -668,11 +655,6 @@ eServiceMP3::eServiceMP3(eServiceReference ref):
 		eDebug("[eServiceMP3] sorry, can't play: %s",m_errorInfo.error_message.c_str());
 	}
 	g_free(uri);
-		out.framebufferBlit = ep3Blit;
-	else if (!strncmp("udp://", m_ref.path.c_str(), 6))
-		;
-	else if (!strncmp("bluray://", m_ref.path.c_str(), 9))
-		;
 }
 
 eServiceMP3::~eServiceMP3()
@@ -791,7 +773,6 @@ RESULT eServiceMP3::start()
 		gst_element_set_state (m_gst_playbin, GST_STATE_PLAYING);
 #else
 		gst_element_set_state (m_gst_playbin, GST_STATE_PAUSED);
-		updateEpgCacheNowNext();
 #endif
 		updateEpgCacheNowNext();
 	}
@@ -1493,7 +1474,6 @@ int eServiceMP3::selectAudioStream(int i)
 		m_currentAudioStream = i;
 		return 0;
 	}
-		return 0;
 	return -1;
 }
 
@@ -2642,7 +2622,6 @@ exit:
 
 	m_subtitle_sync_timer->start(next_timer, true);
 
-#endif
 }
 
 RESULT eServiceMP3::enableSubtitles(iSubtitleUser *user, struct SubtitleTrack &track)
@@ -2652,18 +2631,16 @@ RESULT eServiceMP3::enableSubtitles(iSubtitleUser *user, struct SubtitleTrack &t
 		g_object_set (G_OBJECT (m_gst_playbin), "current-text", -1, NULL);
 		m_subtitle_sync_timer->stop();
 		m_subtitle_pages.clear();
-#ifndef ENABLE_LIBEPLAYER3
 		m_prev_decoder_time = -1;
 		m_decoder_time_valid_state = 0;
-#endif
 		m_currentSubtitleStream = track.pid;
 		m_cachedSubtitleStream = m_currentSubtitleStream;
-#ifndef ENABLE_LIBEPLAYER3
 		g_object_set (G_OBJECT (m_gst_playbin), "current-text", m_currentSubtitleStream, NULL);
 
 		m_subtitle_widget = user;
 
 		eDebug ("[eServiceMP3] switched to subtitle stream %i", m_currentSubtitleStream);
+
 #ifdef GSTREAMER_SUBTITLE_SYNC_MODE_BUG
 		/*
 		 * when we're running the subsink in sync=false mode,
@@ -2681,14 +2658,11 @@ RESULT eServiceMP3::disableSubtitles()
 	eDebug("[eServiceMP3] disableSubtitles");
 	m_currentSubtitleStream = -1;
 	m_cachedSubtitleStream = m_currentSubtitleStream;
-#ifndef ENABLE_LIBEPLAYER3
 	g_object_set (G_OBJECT (m_gst_playbin), "current-text", m_currentSubtitleStream, NULL);
 	m_subtitle_sync_timer->stop();
 	m_subtitle_pages.clear();
-#ifndef ENABLE_LIBEPLAYER3
 	m_prev_decoder_time = -1;
 	m_decoder_time_valid_state = 0;
-#endif
 	if (m_subtitle_widget) m_subtitle_widget->destroy();
 	m_subtitle_widget = 0;
 	return 0;
@@ -2821,18 +2795,12 @@ int eServiceMP3::setBufferSize(int size)
 
 int eServiceMP3::getAC3Delay()
 {
-#ifndef ENABLE_LIBEPLAYER3
 	return ac3_delay;
-#endif
-	return 0;
 }
 
 int eServiceMP3::getPCMDelay()
 {
-#ifndef ENABLE_LIBEPLAYER3
 	return pcm_delay;
-#endif
-	return 0;
 }
 
 void eServiceMP3::setAC3Delay(int delay)

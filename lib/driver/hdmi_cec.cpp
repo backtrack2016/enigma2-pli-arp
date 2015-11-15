@@ -320,9 +320,6 @@ long eHdmiCEC::translateKey(unsigned char code)
 		case 0x40:
 			key = 0x74; //KEY_POWER
 			break;
-		case 0x40:
-			key = 0x74;
-			break;
 		case 0x44:
 		case 0x60:
 			key = 0xcf; //KEY_PLAY
@@ -345,12 +342,6 @@ long eHdmiCEC::translateKey(unsigned char code)
 			break;
 		case 0x4C:
 			key = 0xa8; //KEY_REWIND
-			break;
-		case 0x4B:
-			key = 0xd0;
-			break;
-		case 0x4C:
-			key = 0xa8;
 			break;
 		case 0x53:
 			key = 0x166; //KEY_INFO

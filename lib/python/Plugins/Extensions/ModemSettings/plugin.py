@@ -10,7 +10,6 @@ from Screens.MessageBox import MessageBox
 from Plugins.Plugin import PluginDescriptor
 from Screens.Screen import Screen
 
-from os import path
 class ModemSetup(Screen, ConfigListScreen):
 	def __init__(self, session):
 		Screen.__init__(self, session)
@@ -19,9 +18,6 @@ class ModemSetup(Screen, ConfigListScreen):
 		self["key_red"] = StaticText(_("Cancel"))
 		self["key_green"] = StaticText(_("OK"))
 		self["description"] = Label()
-		self.createSetup()
-		self["key_red"] = StaticText(_("Cancel"))
-		self["key_green"] = StaticText(_("OK"))
 		self["actions"] = ActionMap(["SetupActions", "ColorActions"],
 			{
 				"cancel": self.cancel,
@@ -29,6 +25,7 @@ class ModemSetup(Screen, ConfigListScreen):
 				"green": self.ok,
 				"red": self.cancel,
 			}, -2)
+		self.list = []
 		ConfigListScreen.__init__(self, self.list, session)
 		MODEMTYPE = "0"
 		MODEMPORT = "ttyUSB0"
@@ -136,11 +133,6 @@ class ModemSetup(Screen, ConfigListScreen):
 		self.list.append(getConfigListEntry(_("Additional PPPD options"),
 			self.MODEMPPPDOPTS))
 		self.list.append(getConfigListEntry(_("Dial number"), self.DIALNUMBER))
-		self.list.append(getConfigListEntry(_("Auto start"),
-			self.MODEMAUTOSTART))
-		self.list.append(getConfigListEntry(_("Enable debug"), self.DEBUG))
-		self.list.append(getConfigListEntry(_("Internet connection sharing"),
-			self.SHARE))
 		self.list.append(getConfigListEntry(_("Auto start"),
 			self.MODEMAUTOSTART))
 		self.list.append(getConfigListEntry(_("Enable debug"), self.DEBUG))

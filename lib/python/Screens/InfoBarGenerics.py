@@ -355,9 +355,6 @@ class InfoBarShowHide(InfoBarScreenSaver):
 		else:
 			self.hide()
 			self.hideTimer.stop()
-		else:
-			self.hide()
-			self.hideTimer.stop()
 
 	def lockShow(self):
 		self.__locked = self.__locked + 1
@@ -591,9 +588,6 @@ class InfoBarChannelSelection:
 				"historyNext": (self.historyNext, _("Switch to next channel in history")),
 				"keyChannelUp": (self.keyChannelUpCheck, self.getKeyChannelUpHelptext),
 				"keyChannelDown": (self.keyChannelDownCheck, self.getKeyChannelDownHelptext), 	
-				"showSatellites": (self.showSatellites, _("show satellites")),
-				"volumeUp": (self.volumeUp, _("volume up")),
-				"volumeDown": (self.volumeDown, _("volume down")),
 			})
 
 	def showTvChannelList(self, zap=False):
@@ -643,24 +637,20 @@ class InfoBarChannelSelection:
 			self.switchChannelDown()
 
 	def keyLeftCheck(self):
-		if config.usage.leftright_zap_controls.value == "neutrino":
+		if config.usage.oldstyle_zap_controls.value:
 			if config.usage.volume_instead_of_channelselection.value:
 				VolumeControl.instance and VolumeControl.instance.volDown()
 			else:
 				self.switchChannelUp()
-		elif config.usage.leftright_zap_controls.value == "volume":
-			self.volumeDown()
 		else:
 			self.zapUp()
 
 	def keyRightCheck(self):
-		if config.usage.leftright_zap_controls.value == "neutrino":
+		if config.usage.oldstyle_zap_controls.value:
 			if config.usage.volume_instead_of_channelselection.value:
 				VolumeControl.instance and VolumeControl.instance.volUp()
 			else:
 				self.switchChannelDown()
-		elif config.usage.leftright_zap_controls.value == "volume":
-			self.volumeUp()
 		else:
 			self.zapDown()
 
@@ -701,29 +691,25 @@ class InfoBarChannelSelection:
 		return value
 
 	def getKeyLeftHelptext(self):
-		if config.usage.leftright_zap_controls.value == "neutrino":
+		if config.usage.oldstyle_zap_controls.value:
 			if config.usage.volume_instead_of_channelselection.value:
 				value = _("Volume down")
 			else:
 				value = _("Open service list")
 				if not "keep" in config.usage.servicelist_cursor_behavior.value:
 					value += " " + _("and select previous channel")
-		elif config.usage.leftright_zap_controls.value == "volume":
-			value = _("Decreases the volume")
 		else:
 			value = _("Switch to previous channel")
 		return value
 
 	def getKeyRightHelptext(self):
-		if config.usage.leftright_zap_controls.value == "neutrino":
+		if config.usage.oldstyle_zap_controls.value:
 			if config.usage.volume_instead_of_channelselection.value:
 				value = _("Volume up")
 			else:
 				value = _("Open service list")
 				if not "keep" in config.usage.servicelist_cursor_behavior.value:
 					value += " " + _("and select next channel")
-		elif config.usage.leftright_zap_controls.value == "volume":
-			value = _("Increases the volume")
 		else:
 			value = _("Switch to next channel")
 		return value
@@ -799,11 +785,6 @@ class InfoBarChannelSelection:
 		self.session.execDialog(self.servicelist)
 		self.servicelist.showSatellites()
 
-
-		VolumeControl.instance.volUp()
-
-	def volumeDown(self):
-		VolumeControl.instance.volDown()
 
 class InfoBarMenu:
 	""" Handles a menu action, to open the (main) menu """
@@ -1076,14 +1057,11 @@ class InfoBarEPG:
 		plugin(session = self.session, servicelist = self.servicelist)
 
 	def showEventInfoPlugins(self):
-		if self.getDefaultEPGtype() is not None:
-			self.showEventInfoPlugins = self.showDefaultEPG()
-		else:
-			pluginlist = self.getEPGPluginList()
-			if pluginlist:
+		pluginlist = self.getEPGPluginList()
+		if pluginlist:
 			self.session.openWithCallback(self.EventInfoPluginChosen, ChoiceBox, title=_("Please choose an extension..."), list=pluginlist, skin_name="EPGExtensionsList", reorderConfig="eventinfo_order")
-			else:
-				self.openSingleServiceEPG()
+		else:
+			self.openSingleServiceEPG()
 
 	def EventInfoPluginChosen(self, answer):
 		if answer is not None:
@@ -1845,11 +1823,6 @@ class InfoBarTimeshift:
 		if self.back:
 			self.ts_rewind_timer.start(200, 1)
 
-	def playpause_Service(self):
-		self.ts_playpause_timer.stop()
-		self.setSeekState(self.SEEK_STATE_PLAY)
-		self.setSeekState(self.SEEK_STATE_PAUSE)
-
 	def rewindService(self):
 		self.setSeekState(self.makeStateBackward(int(config.seek.enter_backward.value)))
 
@@ -2014,7 +1987,6 @@ class InfoBarExtensions:
 		self["InstantExtensionsActions"] = HelpableActionMap(self, "InfobarExtensions",
 			{
 				"extensions": (self.showExtensionSelection, _("Show extensions...")),
-				"showPluginBrowser": (self.showPluginBrowser, _("Show the plugin browser..")),
 			}, 1) # lower priority
 
 	def addExtension(self, extension, key = None, type = EXTENSION_SINGLE):
@@ -2070,11 +2042,6 @@ class InfoBarExtensions:
 	def extensionCallback(self, answer):
 		if answer is not None:
 			answer[1][1]()
-
-	def showPluginBrowser(self):
-		from Screens.PluginBrowser import PluginBrowser
-		self.session.open(PluginBrowser)
-
 
 from Tools.BoundFunction import boundFunction
 import inspect
