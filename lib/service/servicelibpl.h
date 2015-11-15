@@ -14,8 +14,8 @@ extern "C"
 #  define __STDC_CONSTANT_MACROS
 #  define UINT64_C
 #endif
-#include <libeplayer3/include/common.h>
-#include <libeplayer3/include/subtitle.h>
+#include <libeplayer/common.h>
+#include <libeplayer/subtitle.h>
 }
 
 #define gint int
