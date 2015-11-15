@@ -339,7 +339,7 @@ eDBoxLCD::eDBoxLCD()
 	eDebug("eDBoxLCD::eDBoxLCD >");
 
 	displayNumber = 0;
-	is_oled = 1;
+    lcd_type = 1;
 
 	instance=this;
 
@@ -459,12 +459,6 @@ int eDBoxLCD::setLCDBrightness(int brightness)
 eDBoxLCD::~eDBoxLCD()
 {
 	eDebug("eDBoxLCD::~eDBoxLCD");
-}
-
-eDBoxLCD *eDBoxLCD::getInstance()
-{
-	eDebug("eDBoxLCD::getInstance");
-	return instance;
 }
 
 void eDBoxLCD::update()
