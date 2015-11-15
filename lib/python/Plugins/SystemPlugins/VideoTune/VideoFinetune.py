@@ -79,16 +79,17 @@ class VideoFinetune(Screen):
 
 		self.basic_colors = [RGB(255, 255, 255), RGB(255, 255, 0), RGB(0, 255, 255), RGB(0, 255, 0), RGB(255, 0, 255), RGB(255, 0, 0), RGB(0, 0, 255), RGB(0, 0, 0)]
 
-		if fileExists("/proc/stb/fb/dst_left"):
-			self.left = open("/proc/stb/fb/dst_left", "r").read()
-			self.width = open("/proc/stb/fb/dst_width", "r").read()
-			self.top = open("/proc/stb/fb/dst_top", "r").read()
-			self.height = open("/proc/stb/fb/dst_height", "r").read()
-			open("/proc/stb/fb/dst_left", "w").write("00000000")
-			open("/proc/stb/fb/dst_width", "w").write("000002d0")
-			open("/proc/stb/fb/dst_top", "w").write("00000000")
-			open("/proc/stb/fb/dst_height", "w").write("0000000240")
-			self.onClose.append(self.__close)
+		if fileExists("/proc/stb/vmpeg/0/dst_left"):
+			self.left = open("/proc/stb/vmpeg/0/dst_left", "r").read()[:-1]
+			self.width = open("/proc/stb/vmpeg/0/dst_width", "r").read()[:-1]
+			self.top = open("/proc/stb/vmpeg/0/dst_top", "r").read()[:-1]
+			self.height = open("/proc/stb/vmpeg/0/dst_height", "r").read()[:-1]
+			if self.left != "0" or self.top != "0" or self.width != "2d0" or self.height != "240":
+				open("/proc/stb/vmpeg/0/dst_left", "w").write("0")
+				open("/proc/stb/vmpeg/0/dst_width", "w").write("2d0")
+				open("/proc/stb/vmpeg/0/dst_top", "w").write("0")
+				open("/proc/stb/vmpeg/0/dst_height", "w").write("240")
+				self.onClose.append(self.__close)
 
 		self["actions"] = NumberActionMap(["InputActions", "OkCancelActions"],
 		{
@@ -104,10 +105,10 @@ class VideoFinetune(Screen):
 		self.testpic_brightness()
 
 	def __close(self):
-		open("/proc/stb/fb/dst_left", "w").write(self.left)
-		open("/proc/stb/fb/dst_width", "w").write(self.width)
-		open("/proc/stb/fb/dst_top", "w").write(self.top)
-		open("/proc/stb/fb/dst_height", "w").write(self.height)
+		open("/proc/stb/vmpeg/0/dst_left", "w").write(self.left)
+		open("/proc/stb/vmpeg/0/dst_width", "w").write(self.width)
+		open("/proc/stb/vmpeg/0/dst_top", "w").write(self.top)
+		open("/proc/stb/vmpeg/0/dst_height", "w").write(self.height)
 
 	def keyNumber(self, key):
 		(self.testpic_brightness, self.testpic_contrast, self.testpic_colors, self.testpic_filter, self.testpic_gamma, self.testpic_overscan, self.testpic_fullhd)[key-1]()
@@ -250,7 +251,7 @@ class VideoFinetune(Screen):
 					self.bbox(x, offset, width, eh, RGB(0,0,0), bbw, bbh)
 
 		c.writeText(xres / 10, yres / 6 - 40, xres * 3 / 5, 40, RGB(128,0,0), RGB(255,255,255), gFont("Regular", 40),
-			("Color"))
+			_("Color"))
 		c.writeText(xres / 10, yres / 6, xres / 2, yres * 4 / 6, RGB(0,0,0), RGB(255,255,255), gFont("Regular", 20),
 			_("Adjust the color settings so that all the color shades are distinguishable, but appear as saturated as possible. "
 				"If you are happy with the result, press OK to close the video fine-tuning, or use the number keys to select other test screens."),

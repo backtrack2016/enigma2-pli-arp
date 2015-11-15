@@ -5,7 +5,9 @@
 #include <lib/base/init.h>
 #include <lib/dvb/idvb.h>
 
-static std::string encode(const std::string& s)
+#include <lib/service/event.h>
+
+static std::string encode(const std::string &s)
 {
 	int len = s.size();
 	std::string res;
@@ -36,7 +38,7 @@ eServiceReference::eServiceReference(const std::string &string)
 	else if ( sscanf(c, "%d:%d:%x:%x:%x:%x:%x:%x:%x:%x:%n", &type, &flags, &data[0], &data[1], &data[2], &data[3], &data[4], &data[5], &data[6], &data[7], &pathl) < 8 )
 	{
 		memset( data, 0, sizeof(data) );
-		eDebug("find old format eServiceReference string");
+		eDebug("[eServiceReference] find old format eServiceReference string");
 		if ( sscanf(c, "%d:%d:%x:%x:%x:%x:%n", &type, &flags, &data[0], &data[1], &data[2], &data[3], &pathl) < 2 )
 			type = idInvalid;
 	}
@@ -113,7 +115,7 @@ eServiceCenter::eServiceCenter()
 {
 	if (!instance)
 	{
-		eDebug("settings instance.");
+		eDebug("[eServiceCenter] settings instance.");
 		instance = this;
 	}
 }
@@ -122,7 +124,7 @@ eServiceCenter::~eServiceCenter()
 {
 	if (instance == this)
 	{
-		eDebug("clear instance");
+		eDebug("[eServiceCenter] clear instance");
 		instance = 0;
 	}
 }
@@ -246,7 +248,7 @@ RESULT iServiceHandler::info(const eServiceReference &, ePtr<iStaticServiceInfor
 	return -1;
 }
 
-#include <lib/service/event.h>
+
 
 RESULT iStaticServiceInformation::getEvent(const eServiceReference &ref, ePtr<eServiceEvent> &evt, time_t start_time)
 {
@@ -297,9 +299,9 @@ long long iStaticServiceInformation::getFileSize(const eServiceReference &ref)
 	return 0;
 }
 
-bool iStaticServiceInformation::isCrypted(const eServiceReference &ref)
+bool iStaticServiceInformation::isCrypted()
 {
-	return 0;
+	return false;
 }
 
 int iStaticServiceInformation::setInfo(const eServiceReference &ref, int w, int v)

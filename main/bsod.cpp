@@ -18,7 +18,7 @@
 
 /************************************************/
 #if defined(__sh__) // dont send mails to dm
-#define CRASH_EMAILADDR "https://code.google.com/p/tdt-amiko/issues/list"
+#define CRASH_EMAILADDR "http://taapat.blogspot.com"
 #else
 #define CRASH_EMAILADDR "forum at www.openpli.org"
 #endif
@@ -98,19 +98,6 @@ static const std::string getConfigString(const std::string &key, const std::stri
 	return value;
 }
 
-static bool getConfigBool(const std::string &key, bool defaultValue)
-{
-	std::string value = getConfigString(key, defaultValue ? "true" : "false");
-	const char *cvalue = value.c_str();
-
-	if (!strcasecmp(cvalue, "true"))
-		return true;
-	if (!strcasecmp(cvalue, "false"))
-		return false;
-
-	return defaultValue;
-}
-
 static bool bsodhandled = false;
 
 void bsodFatal(const char *component)
@@ -156,13 +143,13 @@ void bsodFatal(const char *component)
 	}
 
 	FILE *f;
-	const char* crashlog_name;
+	std::string crashlog_name;
 	std::ostringstream os;
 	os << "/media/hdd/enigma2_crash_";
 	os << time(0);
 	os << ".log";
-	crashlog_name = os.str().c_str();
-	f = fopen(crashlog_name, "wb");
+	crashlog_name = os.str();
+	f = fopen(crashlog_name.c_str(), "wb");
 
 	if (f == NULL)
 	{
@@ -171,14 +158,14 @@ void bsodFatal(const char *component)
 		 * all night long may damage the flash. Also, usually the first
 		 * crash log is the most interesting one. */
 		crashlog_name = "/home/root/enigma2_crash.log";
-		if ((access(crashlog_name, F_OK) == 0) ||
-		    ((f = fopen(crashlog_name, "wb")) == NULL))
+		if ((access(crashlog_name.c_str(), F_OK) == 0) ||
+		    ((f = fopen(crashlog_name.c_str(), "wb")) == NULL))
 		{
 			/* Re-write the same file in /tmp/ because it's expected to
 			 * be in RAM. So the first crash log will end up in /home
 			 * and the last in /tmp */
 			crashlog_name = "/tmp/enigma2_crash.log";
-			f = fopen(crashlog_name, "wb");
+			f = fopen(crashlog_name.c_str(), "wb");
 		}
 	}
 
@@ -187,8 +174,6 @@ void bsodFatal(const char *component)
 		time_t t = time(0);
 		struct tm tm;
 		char tm_str[32];
-
-		bool detailedCrash = getConfigBool("config.crash.details", true);
 
 		localtime_r(&t, &tm);
 		strftime(tm_str, sizeof(tm_str), "%a %b %_d %T %Y", &tm);
@@ -200,7 +185,7 @@ void bsodFatal(const char *component)
 		xml.open("enigma2");
 		xml.string("crashdate", tm_str);
 		xml.string("compiledate", __DATE__);
-		xml.string("contactemail", crash_emailaddr);
+		xml.string("contactaddress", crash_emailaddr);
 		xml.comment("Please report this crashlog to above address");
 
 		xml.string("skin", getConfigString("config.skin.primary_skin", "Default Skin"));
@@ -214,46 +199,18 @@ void bsodFatal(const char *component)
 		if(access("/proc/stb/info/boxtype", F_OK) != -1) {
 			xml.stringFromFile("stbmodel", "/proc/stb/info/boxtype");
 		}
-		else if (access("/proc/stb/info/vumodel", F_OK) != -1) {
+		/*else if (access("/proc/stb/info/vumodel", F_OK) != -1) {
 			xml.stringFromFile("stbmodel", "/proc/stb/info/vumodel");
 		}
 		else if (access("/proc/stb/info/model", F_OK) != -1) {
 			xml.stringFromFile("stbmodel", "/proc/stb/info/model");
-		}
+		}*/
 		xml.cDataFromCmd("kernelversion", "uname -a");
 		xml.stringFromFile("kernelcmdline", "/proc/cmdline");
-		xml.stringFromFile("nimsockets", "/proc/bus/nim_sockets");
-		if (!getConfigBool("config.plugins.crashlogautosubmit.sendAnonCrashlog", true)) {
-			xml.cDataFromFile("stbca", "/proc/stb/info/ca");
-			xml.cDataFromFile("enigma2settings", eEnv::resolve("${sysconfdir}/enigma2/settings"), ".password=");
-		}
-		if (getConfigBool("config.plugins.crashlogautosubmit.addNetwork", false)) {
-			xml.cDataFromFile("networkinterfaces", "/etc/network/interfaces");
-			xml.cDataFromFile("dns", "/etc/resolv.conf");
-			xml.cDataFromFile("defaultgateway", "/etc/default_gw");
-		}
-		if (getConfigBool("config.plugins.crashlogautosubmit.addWlan", false))
-			xml.cDataFromFile("wpasupplicant", "/etc/wpa_supplicant.conf");
+		//xml.stringFromFile("nimsockets", "/proc/bus/nim_sockets");
 		xml.cDataFromFile("imageversion", "/etc/image-version");
-		xml.cDataFromFile("imageissue", "/etc/issue.net");
+		//xml.cDataFromFile("imageissue", "/etc/issue.net");
 		xml.close();
-
-		if (detailedCrash)
-		{
-			xml.open("software");
-			xml.cDataFromCmd("enigma2software", "opkg list-installed 'enigma2*'");
-			if(access("/proc/stb/info/boxtype", F_OK) != -1) {
-				xml.cDataFromCmd("xtrendsoftware", "opkg list-installed 'et-*'");
-			}
-			else if (access("/proc/stb/info/vumodel", F_OK) != -1) {
-				xml.cDataFromCmd("vuplussoftware", "opkg list-installed 'vuplus*'");
-			}
-			else if (access("/proc/stb/info/model", F_OK) != -1) {
-				xml.cDataFromCmd("dreamboxsoftware", "opkg list-installed 'dream*'");
-			}
-			xml.cDataFromCmd("gstreamersoftware", "opkg list-installed 'gst*'");
-			xml.close();
-		}
 
 		xml.open("crashlogs");
 		xml.cDataFromString("enigma2crashlog", getLogBuffer());
@@ -273,11 +230,12 @@ void bsodFatal(const char *component)
 	p.setBackgroundColor(gRGB(0x008000));
 	p.setForegroundColor(gRGB(0xFFFFFF));
 
-	ePtr<gFont> font = new gFont("Regular", 20);
+	int hd =  my_dc->size().width() == 1920;
+	ePtr<gFont> font = new gFont("Regular", hd ? 30 : 20);
 	p.setFont(font);
 	p.clear();
 
-	eRect usable_area = eRect(100, 70, my_dc->size().width() - 150, 100);
+	eRect usable_area = eRect(hd ? 30 : 100, hd ? 30 : 70, my_dc->size().width() - (hd ? 60 : 150), hd ? 150 : 100);
 
 	os.str("");
 	os.clear();
@@ -289,7 +247,7 @@ void bsodFatal(const char *component)
 
 	p.renderText(usable_area, os.str().c_str(), gPainter::RT_WRAP|gPainter::RT_HALIGN_LEFT);
 
-	usable_area = eRect(100, 170, my_dc->size().width() - 180, my_dc->size().height() - 20);
+	usable_area = eRect(hd ? 30 : 100, hd ? 180 : 170, my_dc->size().width() - (hd ? 60 : 180), my_dc->size().height() - (hd ? 30 : 20));
 
 	int i;
 
@@ -304,7 +262,7 @@ void bsodFatal(const char *component)
 		}
 	}
 
-	font = new gFont("Regular", 14);
+	font = new gFont("Regular", hd ? 21 : 14);
 	p.setFont(font);
 
 	p.renderText(usable_area,
@@ -331,7 +289,7 @@ void oops(const mcontext_t &context)
 	int i;
 	for (i=0; i<32; i += 4)
 	{
-		eDebug("%08x %08x %08x %08x",
+		eDebug("    %08x %08x %08x %08x",
 			(int)context.gregs[i+0], (int)context.gregs[i+1],
 			(int)context.gregs[i+2], (int)context.gregs[i+3]);
 	}
@@ -344,7 +302,7 @@ void handleFatalSignal(int signum, siginfo_t *si, void *ctx)
 	ucontext_t *uc = (ucontext_t*)ctx;
 	oops(uc->uc_mcontext);
 #endif
-	eDebug("-------");
+	eDebug("-------FATAL SIGNAL");
 	bsodFatal("enigma2, signal");
 }
 

@@ -12,6 +12,8 @@
 #include <set>
 #include <queue>
 
+#include <lib/network/serversocket.h>
+
 class eDVBCISession;
 class eDVBCIApplicationManagerSession;
 class eDVBCICAManagerSession;
@@ -22,10 +24,10 @@ class eDVBCIInterfaces;
 
 struct queueData
 {
-	__u8 prio;
+	uint8_t prio;
 	unsigned char *data;
 	unsigned int len;
-	queueData( unsigned char *data, unsigned int len, __u8 prio = 0 )
+	queueData( unsigned char *data, unsigned int len, uint8_t prio = 0 )
 		:prio(prio), data(data), len(len)
 	{
 
@@ -146,7 +148,7 @@ public:
 	void thread();
 	void mmiOpened() { mmi_active = true; };
 	void mmiClosed() { mmi_active = false; };
-	void process_tpdu(unsigned char tpdu_tag, __u8* data, int asn_data_length, int con_id);
+	void process_tpdu(unsigned char tpdu_tag, uint8_t* data, int asn_data_length, int con_id);
 	bool sendCreateTC();
 	eData sendData(unsigned char* data, int len);
 	struct timeval tx_time;
@@ -174,18 +176,69 @@ typedef std::list<CIPmtHandler> PMTHandlerList;
 
 #endif // SWIG
 
+#ifndef SWIG
+class eCIClient : public eUnixDomainSocket
+{
+	struct ciplus_header
+	{
+		unsigned int magic;
+		unsigned int cmd;
+		unsigned int size;
+	}__attribute__((packed));
+
+	struct ciplus_message
+	{
+		unsigned int slot;
+		unsigned long idtag;
+		unsigned char tag[4];
+		unsigned int session;
+		unsigned int size;
+	}__attribute__((packed));
+
+	unsigned int receivedLength;
+	unsigned int receivedCmd;
+	unsigned int receivedCmdSize;
+	unsigned char *receivedData;
+
+	ciplus_header header;
+protected:
+	eDVBCIInterfaces *parent;
+	void connectionLost();
+	void dataAvailable();
+public:
+	eCIClient(eDVBCIInterfaces *handler, int socket);
+	void sendData(int cmd, int slot, int session, unsigned long idtag, unsigned char *tag, unsigned char *data, int len);
+
+	enum
+	{
+		CIPLUSHELPER_SESSION_CREATE = 1000,
+		CIPLUSHELPER_SESSION_CLOSE = 1001,
+		CIPLUSHELPER_RECV_APDU = 1002,
+		CIPLUSHELPER_DOACTION = 1003,
+		CIPLUSHELPER_STATE_CHANGED = 1004,
+		CIPLUSHELPER_DATA = 1005,
+		CIPLUSHELPER_MAGIC = 987654321,
+	};
+};
+
+class eDVBCIInterfaces: public eServerSocket
+#else
 class eDVBCIInterfaces
+#endif
 {
 	DECLARE_REF(eDVBCIInterfaces);
 	static eDVBCIInterfaces *instance;
 	eSmartPtrList<eDVBCISlot> m_slots;
-	eDVBCISlot *getSlot(int slotid);
-	PMTHandlerList m_pmt_handlers;
+	PMTHandlerList m_pmt_handlers; 
+
+	eCIClient *client;
 #ifndef SWIG
 public:
 #endif
 	eDVBCIInterfaces();
 	~eDVBCIInterfaces();
+
+	eDVBCISlot *getSlot(int slotid);
 
 	void addPMTHandler(eDVBServicePMTHandler *pmthandler);
 	void removePMTHandler(eDVBServicePMTHandler *pmthandler);
@@ -205,6 +258,10 @@ public:
 	int sendCAPMT(int slot);
 	int setInputSource(int tunerno, data_source source);
 	int setCIClockRate(int slot, int rate);
+
+	void newConnection(int socket);
+	void connectionLost();
+
 #ifdef SWIG
 public:
 #endif
@@ -213,6 +270,9 @@ public:
 	PyObject *getDescrambleRules(int slotid);
 	RESULT setDescrambleRules(int slotid, SWIG_PYOBJECT(ePyObject) );
 	PyObject *readCICaIds(int slotid);
+
+	void sendDataToHelper(int cmd, int slot, int session, unsigned long idtag, unsigned char *tag, unsigned char *data, int len);
+	bool isClientConnected();
 };
 
 #endif

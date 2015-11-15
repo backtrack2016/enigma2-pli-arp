@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <sys/ioctl.h>
 #include <libsig_comp.h>
+#include <linux/dvb/version.h>
 
 #include <lib/actions/action.h>
 #include <lib/driver/rc.h>
@@ -130,6 +131,48 @@ public:
 
 int exit_code;
 
+void quitMainloop(int exitCode)
+{
+	FILE *f = fopen("/proc/stb/fp/was_timer_wakeup", "w");
+	if (f)
+	{
+		fprintf(f, "%d", 0);
+		fclose(f);
+	}
+	else
+	{
+		int fd = open("/dev/dbox/fp0", O_WRONLY);
+		if (fd >= 0)
+		{
+			if (ioctl(fd, 10 /*FP_CLEAR_WAKEUP_TIMER*/) < 0)
+				eDebug("[quitMainloop] FP_CLEAR_WAKEUP_TIMER failed: %m");
+			close(fd);
+		}
+		else
+			eDebug("[quitMainloop] open /dev/dbox/fp0 for wakeup timer clear failed: %m");
+	}
+	exit_code = exitCode;
+	eApp->quit(0);
+}
+
+static void sigterm_handler(int num)
+{
+	quitMainloop(128 + num);
+}
+
+void catchTermSignal()
+{
+	struct sigaction act;
+
+	act.sa_handler = sigterm_handler;
+	act.sa_flags = SA_RESTART;
+
+	if (sigemptyset(&act.sa_mask) == -1)
+		perror("sigemptyset");
+	if (sigaction(SIGTERM, &act, 0) == -1)
+		perror("SIGTERM");
+}
+
 int main(int argc, char **argv)
 {
 #ifdef MEMLEAK_CHECK
@@ -147,8 +190,11 @@ int main(int argc, char **argv)
 	// set pythonpath if unset
 	setenv("PYTHONPATH", eEnv::resolve("${libdir}/enigma2/python").c_str(), 0);
 	printf("PYTHONPATH: %s\n", getenv("PYTHONPATH"));
+	printf("DVB_API_VERSION %d DVB_API_VERSION_MINOR %d\n", DVB_API_VERSION, DVB_API_VERSION_MINOR);
 
 	bsodLogInit();
+
+	CheckPrintkLevel();
 
 	ePython python;
 	eMain main;
@@ -184,7 +230,7 @@ int main(int argc, char **argv)
 
 /*	if (double_buffer)
 	{
-		eDebug(" - double buffering found, enable buffered graphics mode.");
+		eDebug("[MAIN] - double buffering found, enable buffered graphics mode.");
 		dsk.setCompositionMode(eWidgetDesktop::cmBuffered);
 	} */
 
@@ -202,28 +248,43 @@ int main(int argc, char **argv)
 	dsk_lcd.setRedrawTask(main);
 
 
-	eDebug("Loading spinners...");
+	eDebug("[MAIN] Loading spinners...");
 
 	{
-		int i;
+		unsigned int i = 0;
+		bool def = false;
+		const char *path = "${sysconfdir}/enigma2";
+
 #define MAX_SPINNER 64
 		ePtr<gPixmap> wait[MAX_SPINNER];
-		for (i=0; i<MAX_SPINNER; ++i)
+
+		while(i < MAX_SPINNER)
 		{
 			char filename[64];
 			std::string rfilename;
-			snprintf(filename, sizeof(filename), "${datadir}/enigma2/skin_default/spinner/wait%d.png", i + 1);
+			snprintf(filename, sizeof(filename), "%s/spinner/wait%d.png", path, i + 1);
 			rfilename = eEnv::resolve(filename);
 			loadPNG(wait[i], rfilename.c_str());
 
 			if (!wait[i])
 			{
 				if (!i)
-					eDebug("failed to load %s! (%m)", rfilename.c_str());
+				{
+					if (def)
+						eDebug("[MAIN] failed to load %s! (%m)", rfilename.c_str());
+					else
+					{
+						def = true;
+						path = "${datadir}/enigma2/skin_default";
+						continue;
+					}
+				}
 				else
-					eDebug("found %d spinner!\n", i);
+					eDebug("[MAIN] found %d spinner!", i);
+
 				break;
 			}
+			i++;
 		}
 		if (i)
 			my_dc->setSpinner(eRect(ePoint(100, 100), wait[0]->size()), wait, i);
@@ -241,9 +302,10 @@ int main(int argc, char **argv)
 	delete vfd;
 #endif
 
-	printf("executing main\n");
+	printf("[MAIN] executing main\n");
 
 	bsodCatchSignals();
+	catchTermSignal();
 
 	setIoPrio(IOPRIO_CLASS_BE, 3);
 
@@ -258,7 +320,7 @@ int main(int argc, char **argv)
 
 	if (exit_code == 5) /* python crash */
 	{
-		eDebug("(exit code 5)");
+		eDebug("[MAIN] (exit code 5)");
 		bsodFatal(0);
 	}
 
@@ -285,47 +347,9 @@ eApplication *getApplication()
 	return eApp;
 }
 
-void quitMainloop(int exitCode)
-{
-	FILE *f = fopen("/proc/stb/fp/was_timer_wakeup", "w");
-	if (f)
-	{
-		fprintf(f, "%d", 0);
-		fclose(f);
-	}
-	else
-	{
-		int fd = open("/dev/dbox/fp0", O_WRONLY);
-		if (fd >= 0)
-		{
-			if (ioctl(fd, 10 /*FP_CLEAR_WAKEUP_TIMER*/) < 0)
-				eDebug("FP_CLEAR_WAKEUP_TIMER failed (%m)");
-			close(fd);
-		}
-		else
-			eDebug("open /dev/dbox/fp0 for wakeup timer clear failed!(%m)");
-	}
-	exit_code = exitCode;
-	eApp->quit(0);
-}
-
-static void sigterm_handler(int num)
-{
-	quitMainloop(128 + num);
-}
-
 void runMainloop()
 {
-	struct sigaction act;
-
-	act.sa_handler = sigterm_handler;
-	act.sa_flags = SA_RESTART;
-
-	if (sigemptyset(&act.sa_mask) == -1)
-		perror("sigemptyset");
-	if (sigaction(SIGTERM, &act, 0) == -1)
-		perror("SIGTERM");
-
+	catchTermSignal();
 	eApp->runLoop();
 }
 
@@ -337,6 +361,15 @@ const char *getEnigmaVersionString()
 const char *getBoxType()
 {
 	return BOXTYPE;
+}
+
+const char *getGStreamerVersionString()
+{
+#ifndef ENABLE_LIBEPLAYER3
+	return gst_version_string();
+#else
+	return "";
+#endif
 }
 
 #include <malloc.h>

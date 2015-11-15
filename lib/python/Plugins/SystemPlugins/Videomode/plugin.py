@@ -93,11 +93,11 @@ class VideoSetup(Screen, ConfigListScreen):
 #			self.list.append(getConfigListEntry(_("Allow Unsupported Modes"), config.av.edid_override))
 #+++>
 		if config.av.videoport.value == "Component":
-			self.list.append(getConfigListEntry(_("Color Format"), config.av.colorformat_yuv))
+			self.list.append(getConfigListEntry(_("Color format"), config.av.colorformat_yuv))
 
 		if config.av.videoport.value == "HDMI":
-			self.list.append(getConfigListEntry(_("Color Format"), config.av.colorformat_hdmi))
-			self.list.append(getConfigListEntry(_("Audio Source"), config.av.hdmi_audio_source))
+			self.list.append(getConfigListEntry(_("Color format"), config.av.colorformat_hdmi))
+			self.list.append(getConfigListEntry(_("Audio source"), config.av.hdmi_audio_source))
 #+++<
 		if config.av.videoport.value == "Scart":
 			self.list.append(getConfigListEntry(_("Color format"), config.av.colorformat, _("Configure which color format should be used on the SCART output.")))
@@ -108,7 +108,11 @@ class VideoSetup(Screen, ConfigListScreen):
 
 		if level >= 1:
 			if SystemInfo["CanDownmixAC3"]:
-				self.list.append(getConfigListEntry(_("AC3/DTS downmix"), config.av.downmix_ac3, _("Configure whether multi channel sound tracks should be downmixed to stereo.")))
+				self.list.append(getConfigListEntry(_("AC3 downmix"), config.av.downmix_ac3, _("Configure whether multi channel sound tracks should be downmixed to stereo.")))
+			if SystemInfo["CanDownmixDTS"]:
+				self.list.append(getConfigListEntry(_("DTS downmix"), config.av.downmix_dts, _("Configure whether multi channel sound tracks should be downmixed to stereo.")))
+			if SystemInfo["CanDownmixAAC"]:
+				self.list.append(getConfigListEntry(_("AAC downmix"), config.av.downmix_aac, _("Configure whether multi channel sound tracks should be downmixed to stereo.")))
 			self.list.extend((
 				getConfigListEntry(_("General AC3 delay"), config.av.generalAC3delay, _("Configure the general audio delay of Dolby Digital sound tracks.")),
 				getConfigListEntry(_("General PCM delay"), config.av.generalPCMdelay, _("Configure the general audio delay of stereo sound tracks."))

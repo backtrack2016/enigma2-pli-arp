@@ -53,18 +53,18 @@ class ChapterZap(Screen):
 
 	def keyOK(self):
 		self.Timer.stop()
-		self.close(int(self["number"].getText()))
+		self.close(self.field and int(self.field))
 
 	def keyNumberGlobal(self, number):
-		self.Timer.start(3000, True)		#reset timer
+		self.Timer.start(3000, True)
 		self.field = self.field + str(number)
 		self["number"].setText(self.field)
 		if len(self.field) >= 4:
 			self.keyOK()
 
-	def __init__(self, session, number):
+	def __init__(self, session):
 		Screen.__init__(self, session)
-		self.field = str(number)
+		self.field = ""
 
 		self["chapter"] = Label(_("Chapter:"))
 
@@ -251,19 +251,10 @@ class DVDPlayer(Screen, InfoBarBase, InfoBarNotifications, InfoBarSeek, InfoBarP
 				"seekBeginning": self.seekBeginning,
 			}, -2)
 
-		self["NumberActions"] = NumberActionMap( [ "NumberActions"],
+		self["DVDPlayerColorActions"] = HelpableActionMap(self, "ColorActions",
 			{
-				"1": self.keyNumberGlobal,
-				"2": self.keyNumberGlobal,
-				"3": self.keyNumberGlobal,
-				"4": self.keyNumberGlobal,
-				"5": self.keyNumberGlobal,
-				"6": self.keyNumberGlobal,
-				"7": self.keyNumberGlobal,
-				"8": self.keyNumberGlobal,
-				"9": self.keyNumberGlobal,
-				"0": self.keyNumberGlobal,
-			})
+				"blue": (self.chapterZap, _("jump to chapter by number")),
+			}, -2)
 
 		self.onClose.append(self.__onClose)
 
@@ -284,14 +275,29 @@ class DVDPlayer(Screen, InfoBarBase, InfoBarNotifications, InfoBarSeek, InfoBarP
 		self.onFirstExecBegin.append(self.opened)
 		self.service = None
 		self.in_menu = False
+		if fileExists("/proc/stb/vmpeg/0/dst_left"):
+			self.left = open("/proc/stb/vmpeg/0/dst_left", "r").read()[:-1]
+			self.width = open("/proc/stb/vmpeg/0/dst_width", "r").read()[:-1]
+			self.top = open("/proc/stb/vmpeg/0/dst_top", "r").read()[:-1]
+			self.height = open("/proc/stb/vmpeg/0/dst_height", "r").read()[:-1]
+			if self.left != "0" or self.top != "0" or self.width != "2d0" or self.height != "240":
+				open("/proc/stb/vmpeg/0/dst_left", "w").write("0")
+				open("/proc/stb/vmpeg/0/dst_width", "w").write("2d0")
+				open("/proc/stb/vmpeg/0/dst_top", "w").write("0")
+				open("/proc/stb/vmpeg/0/dst_height", "w").write("240")
+				self.onClose.append(self.__restoreOSDSize)
 
-	def keyNumberGlobal(self, number):
-		print "You pressed number " + str(number)
-		self.session.openWithCallback(self.numberEntered, ChapterZap, number)
+	def __restoreOSDSize(self):
+		open("/proc/stb/vmpeg/0/dst_left", "w").write(self.left)
+		open("/proc/stb/vmpeg/0/dst_width", "w").write(self.width)
+		open("/proc/stb/vmpeg/0/dst_top", "w").write(self.top)
+		open("/proc/stb/vmpeg/0/dst_height", "w").write(self.height)
+
+	def chapterZap(self):
+		self.session.openWithCallback(self.numberEntered, ChapterZap)
 
 	def numberEntered(self, retval):
-#		print self.servicelist
-		if retval > 0:
+		if retval:
 			self.zapToNumber(retval)
 
 	def getServiceInterface(self, iface):
@@ -318,12 +324,10 @@ class DVDPlayer(Screen, InfoBarBase, InfoBarNotifications, InfoBarSeek, InfoBarP
 	def __menuOpened(self):
 		self.hide()
 		self.in_menu = True
-		self["NumberActions"].setEnabled(False)
 
 	def __menuClosed(self):
 		self.show()
 		self.in_menu = False
-		self["NumberActions"].setEnabled(True)
 
 	def setChapterLabel(self):
 		chapterLCD = "Menu"
@@ -345,6 +349,9 @@ class DVDPlayer(Screen, InfoBarBase, InfoBarNotifications, InfoBarSeek, InfoBarP
 		if not self.in_menu:
 			self.toggleShow()
 			print "toggleInfo"
+
+	def openEventView(self):
+		pass
 
 	def __timeUpdated(self):
 		print "timeUpdated"
@@ -431,7 +438,8 @@ class DVDPlayer(Screen, InfoBarBase, InfoBarNotifications, InfoBarSeek, InfoBarP
 		choices = [(_("Exit"), "exit"), (_("Continue playing"), "play")]
 		if self.physicalDVD:
 			cur = self.session.nav.getCurrentlyPlayingServiceOrGroup()
-			if cur and not cur.toString().endswith(harddiskmanager.getAutofsMountpoint(harddiskmanager.getCD())):
+			cd = harddiskmanager.getAutofsMountpoint(harddiskmanager.getCD())
+			if cur and cur.toString()[-len(cd):] != cd:
 			    choices.insert(0,(_("Play DVD"), "playPhysical" ))
 		self.session.openWithCallback(self.exitCB, ChoiceBox, title=_("Leave DVD player?"), list = choices)
 
@@ -470,6 +478,9 @@ class DVDPlayer(Screen, InfoBarBase, InfoBarNotifications, InfoBarSeek, InfoBarP
 
 	def nextAngle(self):
 		self.sendKey(iServiceKeys.keyUser+8)
+
+	def resumeDvd(self):
+		self.sendKey(iServiceKeys.keyUser+21)
 
 	def seekBeginning(self):
 		if self.service:
@@ -531,9 +542,9 @@ class DVDPlayer(Screen, InfoBarBase, InfoBarNotifications, InfoBarSeek, InfoBarP
 			newref = eServiceReference(4369, 0, val)
 			print "play", newref.toString()
 			if curref is None or curref != newref:
-				if newref.toString().endswith("/VIDEO_TS") or newref.toString().endswith("/"):
+				if newref.toString()[-9:] == "/VIDEO_TS" or newref.toString()[-1] == "/":
 					names = newref.toString().rsplit("/",3)
-					if names[2].startswith("Disk ") or names[2].startswith("DVD "):
+					if names[2][:5] == "Disk " or names[2][:4] == "DVD ":
 						name = str(names[1]) + " - " + str(names[2])
 					else:
 						name = names[2]
@@ -542,7 +553,7 @@ class DVDPlayer(Screen, InfoBarBase, InfoBarNotifications, InfoBarSeek, InfoBarP
 
 #				Construct a path for the IFO header assuming it exists
 				ifofilename = val
-				if not ifofilename.upper().endswith("/VIDEO_TS"):
+				if ifofilename.upper()[-9:] != "/VIDEO_TS":
 					ifofilename += "/VIDEO_TS"
 				files = [("/VIDEO_TS.IFO", 0x100), ("/VTS_01_0.IFO", 0x100), ("/VTS_01_0.IFO", 0x200)] # ( filename, offset )
 				for name in files:
@@ -623,6 +634,7 @@ class DVDPlayer(Screen, InfoBarBase, InfoBarNotifications, InfoBarSeek, InfoBarP
 		print "playLastCB", answer, self.resume_point
 		if self.service:
 			if answer == True:
+				self.resumeDvd()
 				seekable = self.getSeek()
 				if seekable:
 					seekable.seekTo(self.resume_point)

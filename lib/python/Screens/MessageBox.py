@@ -11,6 +11,7 @@ class MessageBox(Screen):
 	TYPE_INFO = 1
 	TYPE_WARNING = 2
 	TYPE_ERROR = 3
+	TYPE_MESSAGE = 4
 
 	def __init__(self, session, text, type=TYPE_YESNO, timeout=-1, close_on_any_key=False, default=True, enable_input=True, msgBoxID=None, picon=None, simple=False, list=[], timeout_default=None):
 		self.type = type
@@ -36,14 +37,14 @@ class MessageBox(Screen):
 		self.initTimeout(timeout)
 
 		picon = picon or type
-		if picon != self.TYPE_ERROR:
+		if picon is not self.TYPE_ERROR:
 			self["ErrorPixmap"].hide()
-		if picon != self.TYPE_YESNO:
+		if picon is not self.TYPE_YESNO:
 			self["QuestionPixmap"].hide()
-		if picon != self.TYPE_INFO:
+		if picon is not self.TYPE_INFO:
 			self["InfoPixmap"].hide()
-
-		if type == self.TYPE_YESNO:
+		self.title = self.type < self.TYPE_MESSAGE and [_("Question"), _("Information"), _("Warning"), _("Error")][self.type] or _("Message")
+		if type is self.TYPE_YESNO:
 			if list:
 				self.list = list
 			elif default == True:
@@ -78,7 +79,7 @@ class MessageBox(Screen):
 		self.onLayoutFinish.append(self.layoutFinished)
 
 	def layoutFinished(self):
-		self.setTitle(_(self.title))
+		self.setTitle(self.title)
 
 	def initTimeout(self, timeout):
 		self.timeout = timeout

@@ -18,6 +18,7 @@ class ServicePosition(Poll, Converter, object):
 		type = args.pop(0)
 
 		self.negate = 'Negate' in args
+		self.plus = 'Plus' in args
 		self.detailed = 'Detailed' in args
 		self.showHours = 'ShowHours' in args
 		self.showNoSeconds = 'ShowNoSeconds' in args
@@ -37,7 +38,7 @@ class ServicePosition(Poll, Converter, object):
 
 		if self.detailed:
 			self.poll_interval = 100
-		elif self.type == self.TYPE_LENGTH:
+		elif self.type is self.TYPE_LENGTH:
 			self.poll_interval = 2000
 		else:
 			self.poll_interval = 500
@@ -80,13 +81,13 @@ class ServicePosition(Poll, Converter, object):
 		if seek is None:
 			return ""
 		else:
-			if self.type == self.TYPE_LENGTH:
+			if self.type is self.TYPE_LENGTH:
 				l = self.length
-			elif self.type == self.TYPE_POSITION:
+			elif self.type is self.TYPE_POSITION:
 				l = self.position
-			elif self.type == self.TYPE_REMAINING:
+			elif self.type is self.TYPE_REMAINING:
 				l = self.length - self.position
-			elif self.type == self.TYPE_SUMMARY:
+			elif self.type is self.TYPE_SUMMARY:
 				s = self.position / 90000
 				e = (self.length / 90000) - s
 				return "%02d:%02d +%2dm" % (s/60, s%60, e/60)
@@ -99,8 +100,10 @@ class ServicePosition(Poll, Converter, object):
 
 			if self.negate: l = -l
 
+			sign = ""
 			if l >= 0:
-				sign = ""
+				if self.plus:
+					sign = "+"
 			else:
 				l = -l
 				sign = "-"
@@ -144,7 +147,7 @@ class ServicePosition(Poll, Converter, object):
 		time_refresh = what[0] == self.CHANGED_POLL or what[0] == self.CHANGED_SPECIFIC and what[1] in (iPlayableService.evCuesheetChanged,)
 
 		if cutlist_refresh:
-			if self.type == self.TYPE_GAUGE:
+			if self.type is self.TYPE_GAUGE:
 				self.downstream_elements.cutlist_changed()
 
 		if time_refresh:

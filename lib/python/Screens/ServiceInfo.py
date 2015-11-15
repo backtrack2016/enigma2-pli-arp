@@ -5,8 +5,8 @@ from Components.ActionMap import ActionMap
 from Components.Label import Label
 from ServiceReference import ServiceReference
 from enigma import eListboxPythonMultiContent, eListbox, gFont, iServiceInformation, eServiceCenter
-from Tools.Transponder import ConvertToHumanReadable
-from Components.Converter.ChannelNumbers import channelnumbers
+from Tools.Transponder import ConvertToHumanReadable, getChannelNumber
+import skin
 
 RT_HALIGN_LEFT = 0
 
@@ -23,13 +23,13 @@ def to_unsigned(x):
 def ServiceInfoListEntry(a, b, valueType=TYPE_TEXT, param=4):
 	print "b:", b
 	if not isinstance(b, str):
-		if valueType == TYPE_VALUE_HEX:
+		if valueType is TYPE_VALUE_HEX:
 			b = ("0x%0" + str(param) + "x") % to_unsigned(b)
-		elif valueType == TYPE_VALUE_DEC:
+		elif valueType is TYPE_VALUE_DEC:
 			b = str(b)
-		elif valueType == TYPE_VALUE_HEX_DEC:
+		elif valueType is TYPE_VALUE_HEX_DEC:
 			b = ("0x%0" + str(param) + "x (%dd)") % (to_unsigned(b), b)
-		elif valueType == TYPE_VALUE_ORBIT_DEC:
+		elif valueType is TYPE_VALUE_ORBIT_DEC:
 			direction = 'E'
 			if b > 1800:
 				b = 3600 - b
@@ -37,12 +37,14 @@ def ServiceInfoListEntry(a, b, valueType=TYPE_TEXT, param=4):
 			b = ("%d.%d%s") % (b // 10, b % 10, direction)
 		else:
 			b = str(b)
-
+	x, y, w, h = skin.parameters.get("ServiceInfo",(0, 0, 300, 30))
+	xa, ya, wa, ha = skin.parameters.get("ServiceInfoLeft",(0, 0, 300, 25))
+	xb, yb, wb, hb = skin.parameters.get("ServiceInfoRight",(300, 0, 600, 25))
 	return [
 		#PyObject *type, *px, *py, *pwidth, *pheight, *pfnt, *pstring, *pflags;
-		(eListboxPythonMultiContent.TYPE_TEXT, 0, 0, 320, 30, 0, RT_HALIGN_LEFT, ""),
-		(eListboxPythonMultiContent.TYPE_TEXT, 0, 0, 320, 25, 0, RT_HALIGN_LEFT, a),
-		(eListboxPythonMultiContent.TYPE_TEXT, 330, 0, 570, 25, 0, RT_HALIGN_LEFT, b)
+		(eListboxPythonMultiContent.TYPE_TEXT, x, y, w, h, 0, RT_HALIGN_LEFT, ""),
+		(eListboxPythonMultiContent.TYPE_TEXT, xa, ya, wa, ha, 0, RT_HALIGN_LEFT, a),
+		(eListboxPythonMultiContent.TYPE_TEXT, xb, yb, wb, hb, 0, RT_HALIGN_LEFT, b)
 	]
 
 class ServiceInfoList(HTMLComponent, GUIComponent):
@@ -51,8 +53,9 @@ class ServiceInfoList(HTMLComponent, GUIComponent):
 		self.l = eListboxPythonMultiContent()
 		self.list = source
 		self.l.setList(self.list)
-		self.l.setFont(0, gFont("Regular", 23))
-		self.l.setItemHeight(25)
+		font = skin.fonts.get("ServiceInfo", ("Regular", 23, 25))
+		self.l.setFont(0, gFont(font[0], font[1]))
+		self.l.setItemHeight(font[2])
 
 	GUI_WIDGET = eListbox
 
@@ -104,7 +107,7 @@ class ServiceInfo(Screen):
 		self.onShown.append(self.information)
 
 	def information(self):
-		if self.type == TYPE_SERVICE_INFO:
+		if self.type is TYPE_SERVICE_INFO:
 			if self.session.nav.getCurrentlyPlayingServiceOrGroup():
 				name = ServiceReference(self.session.nav.getCurrentlyPlayingServiceReference()).getServiceName()
 				refstr = self.session.nav.getCurrentlyPlayingServiceReference().toString()
@@ -119,8 +122,7 @@ class ServiceInfo(Screen):
 				width = self.info.getInfo(iServiceInformation.sVideoWidth)
 				height = self.info.getInfo(iServiceInformation.sVideoHeight)
 				if width > 0 and height > 0:
-					resolution = "%dx%d" % (width,height)
-					resolution += ("i", "p", "")[self.info.getInfo(iServiceInformation.sProgressive)]
+					resolution = "%dx%d " % (width,height)
 					resolution += str((self.info.getInfo(iServiceInformation.sFrameRate) + 500) / 1000)
 					aspect = self.getServiceInfoValue(iServiceInformation.sAspect)
 					if aspect in ( 1, 2, 5, 6, 9, 0xA, 0xD, 0xE ):
@@ -166,7 +168,7 @@ class ServiceInfo(Screen):
 				self.fillList(Labels)
 
 	def pids(self):
-		if self.type == TYPE_SERVICE_INFO:
+		if self.type is TYPE_SERVICE_INFO:
 			Labels = ( (_("Video PID"), self.getServiceInfoValue(iServiceInformation.sVideoPID), TYPE_VALUE_HEX_DEC, 4),
 					   (_("Audio PID"), self.getServiceInfoValue(iServiceInformation.sAudioPID), TYPE_VALUE_HEX_DEC, 4),
 					   (_("PCR PID"), self.getServiceInfoValue(iServiceInformation.sPCRPID), TYPE_VALUE_HEX_DEC, 4),
@@ -178,17 +180,17 @@ class ServiceInfo(Screen):
 			self.fillList(Labels)
 
 	def showFrontendData(self, real):
-		if self.type == TYPE_SERVICE_INFO:
+		if self.type is TYPE_SERVICE_INFO:
 			frontendData = self.feinfo and self.feinfo.getAll(real)
 			Labels = self.getFEData(frontendData)
 			self.fillList(Labels)
 
 	def transponder(self):
-		if self.type == TYPE_SERVICE_INFO:
+		if self.type is TYPE_SERVICE_INFO:
 			self.showFrontendData(True)
 
 	def tuner(self):
-		if self.type == TYPE_SERVICE_INFO:
+		if self.type is TYPE_SERVICE_INFO:
 			self.showFrontendData(False)
 
 	def getFEData(self, frontendDataOrg):

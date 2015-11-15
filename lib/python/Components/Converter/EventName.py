@@ -13,6 +13,10 @@ class EventName(Converter, object):
 	GENRE = 7
 	RATING = 8
 	SRATING = 9
+	PDC = 10
+	PDCTIME = 11
+	PDCTIMESHORT = 12
+	ISRUNNINGSTATUS = 13
 
 	def __init__(self, type):
 		Converter.__init__(self, type)
@@ -34,8 +38,28 @@ class EventName(Converter, object):
 			self.type = self.RATING
 		elif type == "SmallRating":
 			self.type = self.SRATING
+		elif type == "Pdc":
+			self.type = self.PDC
+		elif type == "PdcTime":
+			self.type = self.PDCTIME
+		elif type == "PdcTimeShort":
+			self.type = self.PDCTIMESHORT
+		elif type == "IsRunningStatus":
+			self.type = self.ISRUNNINGSTATUS
 		else:
 			self.type = self.NAME
+
+	@cached
+	def getBoolean(self):
+		event = self.source.event
+		if event is None:
+			return False
+		if self.type == self.PDC:
+			if event.getPdcPil():
+				return True
+		return False
+
+	boolean = property(getBoolean)
 
 	@cached
 	def getText(self):
@@ -43,9 +67,9 @@ class EventName(Converter, object):
 		if event is None:
 			return ""
 
-		if self.type == self.NAME:
+		if self.type is self.NAME:
 			return event.getEventName()
-		elif self.type == self.SRATING:
+		elif self.type is self.SRATING:
 			rating = event.getParentalData()
 			if rating is None:
 				return ""
@@ -59,7 +83,7 @@ class EventName(Converter, object):
 				else:
 					age += 3
 					return " %d+" % age
-		elif self.type == self.RATING:
+		elif self.type is self.RATING:
 			rating = event.getParentalData()
 			if rating is None:
 				return ""
@@ -73,27 +97,58 @@ class EventName(Converter, object):
 				else:
 					age += 3
 					return _("Minimum age %d years") % age
-		elif self.type == self.GENRE:
+		elif self.type is self.GENRE:
 			genre = event.getGenreData()
 			if genre is None:
 				return ""
 			else:
 				return getGenreStringSub(genre.getLevel1(), genre.getLevel2())
-		elif self.type == self.NAME_NOW:
+		elif self.type is self.NAME_NOW:
 			return pgettext("now/next: 'now' event label", "Now") + ": " + event.getEventName()
-		elif self.type == self.NAME_NEXT:
+		elif self.type is self.NAME_NEXT:
 			return pgettext("now/next: 'next' event label", "Next") + ": " + event.getEventName()
-		elif self.type == self.SHORT_DESCRIPTION:
+		elif self.type is self.SHORT_DESCRIPTION:
 			return event.getShortDescription()
-		elif self.type == self.EXTENDED_DESCRIPTION:
+		elif self.type is self.EXTENDED_DESCRIPTION:
 			return event.getExtendedDescription() or event.getShortDescription()
-		elif self.type == self.FULL_DESCRIPTION:
+		elif self.type is self.FULL_DESCRIPTION:
 			description = event.getShortDescription()
 			extended = event.getExtendedDescription()
-			if description and extended:
-				description += '\n'
+			if description:
+				if extended:
+					description += '\n'
+				elif "no description" in description:
+					return _("no description available")
 			return description + extended
-		elif self.type == self.ID:
+		elif self.type is self.ID:
 			return str(event.getEventId())
+		elif self.type is self.PDC:
+			if event.getPdcPil():
+				return _("PDC")
+			return ""
+		elif self.type in (self.PDCTIME, self.PDCTIMESHORT):
+			pil = event.getPdcPil()
+			if pil:
+				if self.type is self.PDCTIMESHORT:
+					return _("%02d:%02d") % ((pil & 0x7C0) >> 6, (pil & 0x3F))
+				return _("%d.%02d. %02d:%02d") % ((pil & 0xF8000) >> 15, (pil & 0x7800) >> 11, (pil & 0x7C0) >> 6, (pil & 0x3F))
+			return ""
+		elif self.type == self.ISRUNNINGSTATUS:
+			if event.getPdcPil():
+				running_status = event.getRunningStatus()
+				if running_status == 1:
+					return "not running"
+				if running_status == 2:
+					return "starts in a few seconds"
+				if running_status == 3:
+					return "pausing"
+				if running_status == 4:
+					return "running"
+				if running_status == 5:
+					return "service off-air"
+				if running_status in (6,7):
+					return "reserved for future use"
+				return "undefined"
+			return ""
 
 	text = property(getText)

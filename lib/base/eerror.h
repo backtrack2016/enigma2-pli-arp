@@ -111,17 +111,23 @@ void DumpUnfreed();
 
 extern Signal2<void, int, const std::string&> logOutput;
 extern int logOutputConsole;
+void CheckPrintkLevel();
 
 void CHECKFORMAT eFatal(const char*, ...);
 enum { lvlDebug=1, lvlWarning=2, lvlFatal=4 };
 
 #ifdef DEBUG
     void CHECKFORMAT eDebug(const char*, ...);
+    void CHECKFORMAT eDebugNoNewLineStart(const char*, ...);
     void CHECKFORMAT eDebugNoNewLine(const char*, ...);
     void CHECKFORMAT eWarning(const char*, ...);
     #define ASSERT(x) { if (!(x)) eFatal("%s:%d ASSERTION %s FAILED!", __FILE__, __LINE__, #x); }
 #else  // DEBUG
     inline void eDebug(const char* fmt, ...)
+    {
+    }
+
+    inline void eDebugNoNewLineStart(const char* fmt, ...)
     {
     }
 

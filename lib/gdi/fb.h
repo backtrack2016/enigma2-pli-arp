@@ -20,13 +20,10 @@ class fbClass
 	int xResSc, yResSc;
 	int topDiff, leftDiff, rightDiff, bottomDiff;
 #endif
-#ifdef ENABLE_LIBEPLAYER3
-//	unsigned char *lfb_direct;
-#endif
 	int available;
 	struct fb_var_screeninfo screeninfo;
 	fb_cmap cmap;
-	__u16 red[256], green[256], blue[256], trans[256];
+	uint16_t red[256], green[256], blue[256], trans[256];
 	static fbClass *instance;
 	int locked;
 
@@ -40,9 +37,11 @@ public:
 #else
 public:
 	unsigned char *lfb;
+#if not defined(__sh__)
 	void enableManualBlit();
 	void disableManualBlit();
 	int showConsole(int state);
+#endif
 	int SetMode(int xRes, int yRes, int bpp);
 	void getMode(int &xres, int &yres, int &bpp);
 	int Available() { return available; }

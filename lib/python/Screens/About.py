@@ -1,4 +1,5 @@
 from Screen import Screen
+from Components.config import config
 from Components.ActionMap import ActionMap
 from Components.Sources.StaticText import StaticText
 from Components.Harddisk import harddiskmanager
@@ -7,28 +8,47 @@ from Components.About import about
 from Components.ScrollLabel import ScrollLabel
 from Components.Button import Button
 
+from Components.Label import Label
+from Components.ProgressBar import ProgressBar
+
 from Tools.StbHardware import getFPVersion
-from enigma import eTimer
+from enigma import eTimer, eLabel
+
+from Components.HTMLComponent import HTMLComponent
+from Components.GUIComponent import GUIComponent
+import skin
 
 class About(Screen):
 	def __init__(self, session):
 		Screen.__init__(self, session)
-
+		hddsplit, = skin.parameters.get("AboutHddSplit", (0,))
 
 		AboutText = _("Hardware: ") + about.getHardwareTypeString() + "\n"
+		AboutText += _("CPU: ") + about.getCPUInfoString() + "\n"
 		AboutText += _("Image: ") + about.getImageTypeString() + "\n"
+		#AboutText += _("Installed: ") + about.getFlashDateString() + "\n"
 		AboutText += _("Kernel version: ") + about.getKernelVersionString() + "\n"
 
 		EnigmaVersion = "Enigma: " + about.getEnigmaVersionString()
 		self["EnigmaVersion"] = StaticText(EnigmaVersion)
 		AboutText += EnigmaVersion + "\n"
+		AboutText += _("Enigma (re)starts: %d\n") % config.misc.startCounter.value
+
+		#GStreamerVersion = "GStreamer: " + about.getGStreamerVersionString().replace("GStreamer","")
+		#self["GStreamerVersion"] = StaticText(GStreamerVersion)
+		#AboutText += GStreamerVersion + "\n"
+		self["GStreamerVersion"] = StaticText("")
 
 		ImageVersion = _("Last upgrade: ") + about.getImageVersionString()
 		self["ImageVersion"] = StaticText(ImageVersion)
 		AboutText += ImageVersion + "\n"
 
+		AboutText += _("DVB drivers: ") + about.getDriverInstalledDate() + "\n"
+
+		AboutText += _("Python version: ") + about.getPythonVersionString() + "\n"
+
 		fp_version = getFPVersion()
-		if fp_version is None:
+		if fp_version is None or fp_version == 0:
 			fp_version = ""
 		else:
 			fp_version = _("Frontprocessor version: %d") % fp_version
@@ -53,14 +73,15 @@ class About(Screen):
 		hddlist = harddiskmanager.HDDList()
 		hddinfo = ""
 		if hddlist:
+			formatstring = hddsplit and "%s:%s, %.1f %sB %s" or "%s\n(%s, %.1f %sB %s)"
 			for count in range(len(hddlist)):
 				if hddinfo:
 					hddinfo += "\n"
 				hdd = hddlist[count][1]
 				if int(hdd.free()) > 1024:
-					hddinfo += "%s\n(%s, %d GB %s)" % (hdd.model(), hdd.capacity(), hdd.free()/1024, _("free"))
+					hddinfo += formatstring % (hdd.model(), hdd.capacity(), hdd.free()/1024.0, "G", _("free"))
 				else:
-					hddinfo += "%s\n(%s, %d MB %s)" % (hdd.model(), hdd.capacity(), hdd.free(), _("free"))
+					hddinfo += formatstring % (hdd.model(), hdd.capacity(), hdd.free(), "M", _("free"))
 		else:
 			hddinfo = _("none")
 		self["hddA"] = StaticText(hddinfo)
@@ -68,6 +89,7 @@ class About(Screen):
 		self["AboutScrollLabel"] = ScrollLabel(AboutText)
 		self["key_green"] = Button(_("Translations"))
 		self["key_red"] = Button(_("Latest Commits"))
+		self["key_blue"] = Button(_("Memory Info"))
 
 		self["actions"] = ActionMap(["ColorActions", "SetupActions", "DirectionActions"],
 			{
@@ -75,6 +97,7 @@ class About(Screen):
 				"ok": self.close,
 				"red": self.showCommits,
 				"green": self.showTranslationInfo,
+				"blue": self.showMemoryInfo,
 				"up": self["AboutScrollLabel"].pageUp,
 				"down": self["AboutScrollLabel"].pageDown
 			})
@@ -84,6 +107,9 @@ class About(Screen):
 
 	def showCommits(self):
 		self.session.open(CommitInfo)
+
+	def showMemoryInfo(self):
+		self.session.open(MemoryInfo)
 
 class TranslationInfo(Screen):
 	def __init__(self, session):
@@ -106,6 +132,7 @@ class TranslationInfo(Screen):
 			infomap[type] = value
 		print infomap
 
+		self["key_red"] = Button(_("Cancel"))
 		self["TranslationInfo"] = StaticText(info)
 
 		translator_name = infomap.get("Language-Team", "none")
@@ -136,44 +163,64 @@ class CommitInfo(Screen):
 				"right": self.right
 			})
 
+		self["key_red"] = Button(_("Cancel"))
+
 		self.project = 0
 		self.projects = [
-			("enigma2", "Enigma2"),
-			("openpli-oe-core", "Openpli Oe Core"),
-			("enigma2-plugins", "Enigma2 Plugins"),
+			("enigma2-pli-arp-taapat", "Taapat Enigma2"),
+			("tdt-arp-taapat", "Taapat tdt-arp"),
+			("taapat-enigma2-plugins-sh4", "Taapat Enigma2 plugins sh4"),
+			("taapat-skin-MetropolisHD", "skin-MetropolisHD"),
+			("ar-p-e2openplugin-OpenWebif", "AR-P plugin-OpenWebif"),
 			("aio-grab", "Aio Grab"),
-			("gst-plugin-dvbmediasink", "Gst Plugin Dvbmediasink"),
-			("openembedded", "Openembedded"),
-			("plugin-xmltvimport", "Plugin Xmltvimport"),
-			("plugins-enigma2", "Plugins Enigma2"),
-			("skin-magic", "Skin Magic"),
-			("tuxtxt", "Tuxtxt")
+			("enigma2-plugin-skins-magic", "Skin Magic"),
+			("tuxtxt", "Tuxtxt"),
+			("enigma2", "Openpli Enigma2")
 		]
 		self.cachedProjects = {}
 		self.Timer = eTimer()
-		self.Timer.callback.append(self.readCommitLogs)
+		self.Timer.callback.append(self.readGithubCommitLogs)
 		self.Timer.start(50, True)
 
-	def readCommitLogs(self):
-		url = 'http://sourceforge.net/p/openpli/%s/feed' % self.projects[self.project][0]
-		commitlog = ""
+	def readGithubCommitLogs(self):
+		from json import loads
 		from urllib2 import urlopen
-		try:
-			commitlog += 80 * '-' + '\n'
-			commitlog += url.split('/')[-2] + '\n'
-			commitlog += 80 * '-' + '\n'
-			for x in  urlopen(url, timeout=5).read().split('<title>')[2:]:
-				for y in x.split("><"):
-					if '</title' in y:
-						title = y[:-7]
-					if '</dc:creator' in y:
-						creator = y.split('>')[1].split('<')[0]
-					if '</pubDate' in y:
-						date = y.split('>')[1].split('<')[0][:-6]
-				commitlog += date + ' ' + creator + '\n' + title + 2 * '\n'
-			self.cachedProjects[self.projects[self.project][1]] = commitlog
-		except:
-			commitlog = _("Currently the commit log cannot be retrieved - please try later again")
+		feed = self.projects[self.project][0]
+		commitlog = 80 * '-' + '\n'
+		commitlog += self.projects[self.project][1] + '\n'
+		commitlog += 80 * '-' + '\n'
+		if "arp-taapat" in feed:
+			url = 'https://bitbucket.org/api/1.0/repositories/Taapat/%s/changesets/?limit=40' % feed
+			try:
+				commits = ''
+				for c in loads(urlopen(url, timeout=5).read()).get('changesets', []):
+					date = c['timestamp']
+					creator = c['author']
+					title = c['message'].split('\n', 1)[0]
+					commits = date + ' ' + creator + '\n' + title + 2 * '\n' + commits
+				commitlog += str(commits)
+				self.cachedProjects[self.projects[self.project][1]] = commitlog.encode('utf-8')
+			except:
+				commitlog = _("Currently the commit log cannot be retrieved - please try later again")
+		else:
+			if "taapat-" in feed:
+				url = 'https://api.github.com/repos/taapat/%s/commits' % feed[7:]
+			elif "ar-p-" in feed:
+				url = 'https://api.github.com/repos/openar-p/%s/commits' % feed[5:]
+			else:
+				url = 'https://api.github.com/repos/openpli/%s/commits' % feed
+			try:
+				for c in loads(urlopen(url, timeout=5).read()):
+					creator = c['commit']['author']['name']
+					title = c['commit']['message']
+					if '\n' in title:
+						title = title.split('\n', 1)[0]
+					date = c['commit']['committer']['date'].replace('T', ' ').replace('Z', '')
+					commitlog += date + ' ' + creator + '\n' + title + 2 * '\n'
+				commitlog = commitlog.encode('utf-8')
+				self.cachedProjects[self.projects[self.project][1]] = commitlog
+			except:
+				commitlog = _("Currently the commit log cannot be retrieved - please try later again")
 		self["AboutScrollLabel"].setText(commitlog)
 
 	def updateCommitLogs(self):
@@ -190,3 +237,92 @@ class CommitInfo(Screen):
 	def right(self):
 		self.project = self.project != len(self.projects) - 1 and self.project + 1 or 0
 		self.updateCommitLogs()
+
+class MemoryInfo(Screen):
+	def __init__(self, session):
+		Screen.__init__(self, session)
+
+		self["actions"] = ActionMap(["SetupActions", "ColorActions"],
+			{
+				"cancel": self.close,
+				"ok": self.getMemoryInfo,
+				"green": self.getMemoryInfo,
+				"blue": self.clearMemory,
+			})
+
+		self["key_red"] = Label(_("Cancel"))
+		self["key_green"] = Label(_("Refresh"))
+		self["key_blue"] = Label(_("Clear"))
+
+		self['lmemtext'] = Label()
+		self['lmemvalue'] = Label()
+		self['rmemtext'] = Label()
+		self['rmemvalue'] = Label()
+
+		self['pfree'] = Label()
+		self['pused'] = Label()
+		self["slide"] = ProgressBar()
+		self["slide"].setValue(100)
+
+		self["params"] = MemoryInfoSkinParams()
+
+		self['info'] = Label(_("This info is for developers only.\nFor a normal users it is not important.\nDon't panic, please, when here will be displayed any suspicious informations!"))
+
+		self.setTitle(_("Memory Info"))
+		self.onLayoutFinish.append(self.getMemoryInfo)
+
+	def getMemoryInfo(self):
+		try:
+			ltext = rtext = ""
+			lvalue = rvalue = ""
+			mem = 1
+			free = 0
+			i = 0
+			for line in open('/proc/meminfo','r'):
+				( name, size, units ) = line.strip().split()
+				if i < self["params"].rows_in_column:
+					if "MemTotal" in name:
+						mem = int(size)
+					elif "MemFree" in name:
+						free += int(size)
+					elif "Inactive:" in name:
+						free += int(size)
+					ltext += "".join((name,"\n"))
+					lvalue += "".join((size," ",units,"\n"))
+				else:
+					rtext += "".join((name,"\n"))
+					rvalue += "".join((size," ",units,"\n"))
+				i += 1
+			self['lmemtext'].setText(ltext)
+			self['lmemvalue'].setText(lvalue)
+			self['rmemtext'].setText(rtext)
+			self['rmemvalue'].setText(rvalue)
+
+			self["slide"].setValue(int(100.0*(mem-free)/mem+0.25))
+			self['pfree'].setText("%.1f %s" % (100.*free/mem,'%'))
+			self['pused'].setText("%.1f %s" % (100.*(mem-free)/mem,'%'))
+
+		except Exception, e:
+			print "[About] getMemoryInfo FAIL:", e
+
+	def clearMemory(self):
+		from os import system
+		system("sync")
+		system("echo 3 > /proc/sys/vm/drop_caches")
+		self.getMemoryInfo()
+
+class MemoryInfoSkinParams(HTMLComponent, GUIComponent):
+	def __init__(self):
+		GUIComponent.__init__(self)
+		self.rows_in_column = 25
+
+	def applySkin(self, desktop, screen):
+		if self.skinAttributes is not None:
+			attribs = [ ]
+			for (attrib, value) in self.skinAttributes:
+				if attrib == "rowsincolumn":
+					self.rows_in_column = int(value)
+			self.skinAttributes = attribs
+		return GUIComponent.applySkin(self, desktop, screen)
+
+	GUI_WIDGET = eLabel

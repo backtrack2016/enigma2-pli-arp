@@ -8,7 +8,7 @@ from Components.NimManager import nimmanager
 from Components.Button import Button
 from Components.Label import Label
 from Components.SelectionList import SelectionList, SelectionEntryComponent
-from Components.config import getConfigListEntry, config, ConfigNothing, ConfigSelection, updateConfigElement, ConfigSatlist, ConfigYesNo
+from Components.config import getConfigListEntry, config, ConfigNothing, ConfigSelection, updateConfigElement, ConfigSatlist, ConfigYesNo, configfile
 from Components.Sources.List import List
 from Screens.MessageBox import MessageBox
 from Screens.ChoiceBox import ChoiceBox
@@ -24,7 +24,11 @@ class NimSetup(Screen, ConfigListScreen, ServiceStopScreen):
 		nim = self.nimConfig
 
 		if mode == "single":
-			list.append(getConfigListEntry(_("Satellite"), nim.diseqcA))
+			self.singleSatEntry = getConfigListEntry(_("Satellite"), nim.diseqcA)
+			list.append(self.singleSatEntry)
+			if nim.diseqcA.value in ("360", "560"):
+				list.append(getConfigListEntry(_("Use circular LNB"), nim.simpleDiSEqCSetCircularLNB))
+			list.append(getConfigListEntry(_("Send DiSEqC"), nim.simpleSingleSendDiSEqC))
 		else:
 			list.append(getConfigListEntry(_("Port A"), nim.diseqcA))
 
@@ -115,6 +119,7 @@ class NimSetup(Screen, ConfigListScreen, ServiceStopScreen):
 		self.showAdditionalMotorOptions = None
 		self.selectSatsEntry = None
 		self.advancedSelectSatsEntry = None
+		self.singleSatEntry = None
 
 		if self.nim.isMultiType():
 			multiType = self.nimConfig.multiType
@@ -230,7 +235,7 @@ class NimSetup(Screen, ConfigListScreen, ServiceStopScreen):
 			self.advancedLnbsEntry, self.advancedDiseqcMode, self.advancedUsalsEntry, \
 			self.advancedLof, self.advancedPowerMeasurement, self.turningSpeed, \
 			self.advancedType, self.advancedSCR, self.advancedManufacturer, self.advancedUnicable, self.advancedConnected, \
-			self.toneburst, self.committedDiseqcCommand, self.uncommittedDiseqcCommand, \
+			self.toneburst, self.committedDiseqcCommand, self.uncommittedDiseqcCommand, self.singleSatEntry, \
 			self.commandOrder, self.showAdditionalMotorOptions, self.cableScanType, self.multiType)
 		if self["config"].getCurrent() == self.multiType:
 			from Components.NimManager import InitNimManager
@@ -513,10 +518,17 @@ class NimSetup(Screen, ConfigListScreen, ServiceStopScreen):
 		self.nimConfig = self.nim.config
 		self.createConfigMode()
 		self.createSetup()
+		self.onLayoutFinish.append(self.layoutFinished)
+
+	def layoutFinished(self):
+		self.setTitle(_("Reception Settings"))
 
 	def keyLeft(self):
 		ConfigListScreen.keyLeft(self)
-		self.newConfig()
+		if self["config"].getCurrent() in (self.advancedSelectSatsEntry, self.selectSatsEntry):
+			self.keyOk()
+		else:
+			self.newConfig()
 
 	def setTextKeyBlue(self):
 		self["key_blue"].setText("")
@@ -525,7 +537,10 @@ class NimSetup(Screen, ConfigListScreen, ServiceStopScreen):
 
 	def keyRight(self):
 		ConfigListScreen.keyRight(self)
-		self.newConfig()
+		if self["config"].getCurrent() in (self.advancedSelectSatsEntry, self.selectSatsEntry):
+			self.keyOk()
+		else:
+			self.newConfig()
 
 	def handleKeyFileCallback(self, answer):
 		ConfigListScreen.handleKeyFileCallback(self, answer)
@@ -545,13 +560,17 @@ class NimSetup(Screen, ConfigListScreen, ServiceStopScreen):
 			for id in nimlist:
 				choices.append((str(id), nimmanager.getNimDescription(id)))
 			self.nimConfig.connectedTo.setChoices(choices)
-		for x in self["config"].list:
-			x[1].save()
+			# sanity check for empty sat list
+			if self.nimConfig.configMode.value != "satposdepends" and len(nimmanager.getSatListForNim(self.slotid)) < 1:
+				self.nimConfig.configMode.value = "nothing"
+		if self["config"].isChanged():
+			for x in self["config"].list:
+				x[1].save()
+			configfile.save()
 
 	def cancelConfirm(self, result):
 		if not result:
 			return
-
 		for x in self["config"].list:
 			x[1].cancel()
 		# we need to call saveAll to reset the connectedTo choices
@@ -582,11 +601,16 @@ class NimSelection(Screen):
 
 		self.setResultClass()
 
-		self["actions"] = ActionMap(["OkCancelActions"],
+		self["actions"] = ActionMap(["OkCancelActions", "MenuActions"],
 		{
-			"ok": self.okbuttonClick ,
-			"cancel": self.close
+			"ok": self.okbuttonClick,
+			"cancel": self.close,
+			"menu": self.exit,
 		}, -2)
+		self.setTitle(_("Choose Tuner"))
+
+	def exit(self):
+		self.close(True)
 
 	def setResultClass(self):
 		self.resultclass = NimSetup
@@ -595,12 +619,12 @@ class NimSelection(Screen):
 		nim = self["nimlist"].getCurrent()
 		nim = nim and nim[3]
 		if nim is not None and not nim.empty and nim.isSupported():
-			self.session.openWithCallback(self.updateList, self.resultclass, nim.slot)
+			self.session.openWithCallback(boundFunction(self.updateList, self["nimlist"].getIndex()), self.resultclass, nim.slot)
 
 	def showNim(self, nim):
 		return True
 
-	def updateList(self):
+	def updateList(self, index=None):
 		self.list = [ ]
 		for x in nimmanager.nim_slots:
 			slotid = x.slot
@@ -660,6 +684,8 @@ class NimSelection(Screen):
 				self.list.append((slotid, x.friendly_full_description, text, x))
 		self["nimlist"].setList(self.list)
 		self["nimlist"].updateList(self.list)
+		if index is not None:
+			self["nimlist"].setIndex(index)
 
 class SelectSatsEntryScreen(Screen):
 	skin = """
@@ -676,7 +702,7 @@ class SelectSatsEntryScreen(Screen):
 			<ePixmap pixmap="skin_default/div-h.png" position="0,375" zPosition="1" size="540,2" transparent="1" alphatest="on" />
 			<widget name="hint" position="10,380" size="540,25" font="Regular;19" halign="center" transparent="1" />
 		</screen>"""
-	def __init__(self, session, userSatlist=[]):
+	def __init__(self, session, userSatlist=""):
 		Screen.__init__(self, session)
 		self["key_red"] = Button(_("Cancel"))
 		self["key_green"] = Button(_("Save"))
@@ -684,9 +710,14 @@ class SelectSatsEntryScreen(Screen):
 		self["key_blue"] = Button(_("Select all"))
 		self["hint"] = Label(_("Press OK to toggle the selection"))
 		SatList = []
+		if not isinstance(userSatlist, str):
+			userSatlist = ""
+		else:
+			userSatlist = userSatlist.replace("]", "").replace("[", "")
 		for sat in nimmanager.getSatList():
 			selected = False
-			if isinstance(userSatlist, str) and str(sat[0]) in userSatlist:
+			sat_str = str(sat[0])
+			if userSatlist and ("," not in userSatlist and sat_str == userSatlist) or ((', ' + sat_str + ',' in userSatlist) or (userSatlist.startswith(sat_str + ',')) or (userSatlist.endswith(', ' + sat_str))):
 				selected = True
 			SatList.append((sat[0], sat[1], sat[2], selected))
 		sat_list = [SelectionEntryComponent(x[1], x[0], x[2], x[3]) for x in SatList]

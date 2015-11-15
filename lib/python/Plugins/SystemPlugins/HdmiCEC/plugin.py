@@ -113,5 +113,4 @@ def startSetup(menuid):
 	return []
 
 def Plugins(**kwargs):
-	return [PluginDescriptor(name = _("HDMI CEC setup"), description = _("Adjust HDMI CEC settings"), where = PluginDescriptor.WHERE_PLUGINMENU, fnc = main)]
-
+	return [PluginDescriptor(where = PluginDescriptor.WHERE_MENU, fnc = startSetup)]

@@ -23,7 +23,7 @@ void setRTC(time_t time)
 		if (fprintf(f, "%u", (unsigned int)time))
 			prev_time = time;
 		else
-			eDebug("write /proc/stb/fp/rtc failed (%m)");
+			eDebug("[eDVBLocalTimeHandler] write /proc/stb/fp/rtc failed: %m");
 		fclose(f);
 	}
 	else
@@ -32,7 +32,7 @@ void setRTC(time_t time)
 		if ( fd >= 0 )
 		{
 			if ( ::ioctl(fd, FP_IOCTL_SET_RTC, (void*)&time ) < 0 )
-				eDebug("FP_IOCTL_SET_RTC failed(%m)");
+				eDebug("[eDVBLocalTimeHandler] FP_IOCTL_SET_RTC failed: %m");
 			else
 				prev_time = time;
 			close(fd);
@@ -49,7 +49,7 @@ time_t getRTC()
 		// sanity check to detect corrupt atmel firmware
 		unsigned int tmp;
 		if (fscanf(f, "%u", &tmp) != 1)
-			eDebug("read /proc/stb/fp/rtc failed (%m)");
+			eDebug("[eDVBLocalTimeHandler] read /proc/stb/fp/rtc failed: %m");
 		else
 			rtc_time=tmp;
 		fclose(f);
@@ -60,20 +60,15 @@ time_t getRTC()
 		if ( fd >= 0 )
 		{
 			if ( ::ioctl(fd, FP_IOCTL_GET_RTC, (void*)&rtc_time ) < 0 )
-				eDebug("FP_IOCTL_GET_RTC failed(%m)");
+				eDebug("[eDVBLocalTimeHandler] FP_IOCTL_GET_RTC failed: %m");
 			close(fd);
 		}
 	}
 	return rtc_time != prev_time ? rtc_time : 0;
 }
 
-time_t parseDVBtime(__u8 t1, __u8 t2, __u8 t3, __u8 t4, __u8 t5, __u16 *hash)
+static void parseDVBdate(tm& t, int mjd)
 {
-	tm t;
-	t.tm_sec=fromBCD(t5);
-	t.tm_min=fromBCD(t4);
-	t.tm_hour=fromBCD(t3);
-	int mjd=(t1<<8)|t2;
 	int k;
 
 	t.tm_year = (int) ((mjd - 15078.2) / 365.25);
@@ -86,12 +81,39 @@ time_t parseDVBtime(__u8 t1, __u8 t2, __u8 t3, __u8 t4, __u8 t5, __u16 *hash)
 
 	t.tm_isdst =  0;
 	t.tm_gmtoff = 0;
+}
 
-	if (hash) {
-		*hash = t.tm_hour * 60 + t.tm_min;
-		*hash |= t.tm_mday << 11;
-	}
+static inline void parseDVBtime_impl(tm& t, const uint8_t *data)
+{
+	parseDVBdate(t, (data[0] << 8) | data[1]);
+	t.tm_hour = fromBCD(data[2]);
+	t.tm_min = fromBCD(data[3]);
+	t.tm_sec = fromBCD(data[4]);
+}
 
+time_t parseDVBtime(uint16_t mjd, uint32_t stime_bcd)
+{
+	tm t;
+	parseDVBdate(t, mjd);
+	t.tm_hour = fromBCD(stime_bcd >> 16);
+	t.tm_min = fromBCD((stime_bcd >> 8) & 0xFF);
+	t.tm_sec = fromBCD(stime_bcd & 0xFF);
+	return timegm(&t);
+}
+
+time_t parseDVBtime(const uint8_t *data)
+{
+	tm t;
+	parseDVBtime_impl(t, data);
+	return timegm(&t);
+}
+
+time_t parseDVBtime(const uint8_t *data, uint16_t *hash)
+{
+	tm t;
+	parseDVBtime_impl(t, data);
+	*hash = t.tm_hour * 60 + t.tm_min;
+	*hash |= t.tm_mday << 11;
 	return timegm(&t);
 }
 
@@ -109,14 +131,14 @@ void TDT::ready(int error)
 	eDVBLocalTimeHandler::getInstance()->updateTime(error, chan, ++update_count);
 }
 
-int TDT::createTable(unsigned int nr, const __u8 *data, unsigned int max)
+int TDT::createTable(unsigned int nr, const uint8_t *data, unsigned int max)
 {
 	if ( data && (data[0] == 0x70 || data[0] == 0x73 ))
 	{
 		int length = ((data[1] & 0x0F) << 8) | data[2];
 		if ( length >= 5 )
 		{
-			time_t tptime = parseDVBtime(data[3], data[4], data[5], data[6], data[7]);
+			time_t tptime = parseDVBtime(&data[3]);
 			if (tptime && tptime != -1)
 				eDVBLocalTimeHandler::getInstance()->updateTime(tptime, chan, update_count);
 			error=0;
@@ -166,10 +188,10 @@ eDVBLocalTimeHandler::eDVBLocalTimeHandler()
 		res_mgr->connectChannelAdded(slot(*this,&eDVBLocalTimeHandler::DVBChannelAdded), m_chanAddedConn);
 		time_t now = time(0);
 		if ( now < 1072224000 ) // 01.01.2004
-			eDebug("RTC not ready... wait for transponder time");
+			eDebug("[eDVBLocalTimeHandler] RTC not ready... wait for transponder time");
 		else // inform all who's waiting for valid system time..
 		{
-			eDebug("Use valid Linux Time :) (RTC?)");
+			eDebug("[eDVBLocalTimeHandler] Use valid Linux Time :) (RTC?)");
 			m_time_ready = true;
 			/*emit*/ m_timeUpdated();
 		}
@@ -182,7 +204,7 @@ eDVBLocalTimeHandler::~eDVBLocalTimeHandler()
 	instance=0;
 	if (ready())
 	{
-		eDebug("set RTC to previous valid time");
+		eDebug("[eDVBLocalTimeHandler] set RTC to previous valid time");
 		setRTC(::time(0));
 	}
 }
@@ -494,7 +516,7 @@ void eDVBLocalTimeHandler::DVBChannelStateChanged(iDVBChannel *chan)
 					m_knownChannels.erase(it);
 					if (m_knownChannels.empty())
 						m_updateNonTunedTimer->start(TIME_UPDATE_INTERVAL, true);
-					break;
+					return;
 				default: // ignore all other events
 					return;
 			}

@@ -6,18 +6,7 @@
 #include <lib/dvb/pmt.h>
 #include <lib/dvb/subtitle.h>
 #include <lib/dvb/teletext.h>
-#ifndef ENABLE_LIBEPLAYER3
 #include <gst/gst.h>
-#else
-#include <libeplayer/common.h>
-#include <libeplayer/subtitle.h>
-#define gint int
-#define gint64 int64_t
-extern OutputHandler_t		OutputHandler;
-extern PlaybackHandler_t	PlaybackHandler;
-extern ContainerHandler_t	ContainerHandler;
-extern ManagerHandler_t	ManagerHandler;
-#endif
 /* for subtitles */
 #include <lib/gui/esubtitle.h>
 
@@ -95,16 +84,41 @@ public:
 
 	double getDouble(unsigned int index) const;
 	unsigned char *getBuffer(unsigned int &size) const;
-
 	void setDouble(double value);
 #ifndef ENABLE_LIBEPLAYER3
 	void setBuffer(GstBuffer *buffer);
 #endif
 };
 
-#ifndef ENABLE_LIBEPLAYER3
+class GstMessageContainer: public iObject
+{
+	DECLARE_REF(GstMessageContainer);
+	GstMessage *messagePointer;
+	GstPad *messagePad;
+	GstBuffer *messageBuffer;
+	int messageType;
+
+public:
+	GstMessageContainer(int type, GstMessage *msg, GstPad *pad, GstBuffer *buffer)
+	{
+		messagePointer = msg;
+		messagePad = pad;
+		messageBuffer = buffer;
+		messageType = type;
+	}
+	~GstMessageContainer()
+	{
+		if (messagePointer) gst_message_unref(messagePointer);
+		if (messagePad) gst_object_unref(messagePad);
+		if (messageBuffer) gst_buffer_unref(messageBuffer);
+	}
+	int getType() { return messageType; }
+	operator GstMessage *() { return messagePointer; }
+	operator GstPad *() { return messagePad; }
+	operator GstBuffer *() { return messageBuffer; }
+};
+
 typedef struct _GstElement GstElement;
-#endif
 
 typedef enum { atUnknown, atMPEG, atMP3, atAC3, atDTS, atAAC, atPCM, atOGG, atFLAC, atWMA } audiotype_t;
 typedef enum { stUnknown, stPlainText, stSSA, stASS, stSRT, stVOB, stPGS } subtype_t;
@@ -112,7 +126,7 @@ typedef enum { ctNone, ctMPEGTS, ctMPEGPS, ctMKV, ctAVI, ctMP4, ctVCD, ctCDA, ct
 
 class eServiceMP3: public iPlayableService, public iPauseableService,
 	public iServiceInformation, public iSeekableService, public iAudioTrackSelection, public iAudioChannelSelection,
-	public iSubtitleOutput, public iStreamedService, public iAudioDelay, public Object
+	public iSubtitleOutput, public iStreamedService, public iAudioDelay, public Object, public iCueSheet
 {
 	DECLARE_REF(eServiceMP3);
 public:
@@ -133,12 +147,18 @@ public:
 	RESULT audioChannel(ePtr<iAudioChannelSelection> &ptr);
 	RESULT subtitle(ePtr<iSubtitleOutput> &ptr);
 	RESULT audioDelay(ePtr<iAudioDelay> &ptr);
+	RESULT cueSheet(ePtr<iCueSheet> &ptr);
 
 		// not implemented (yet)
 	RESULT frontendInfo(ePtr<iFrontendInformation> &ptr) { ptr = 0; return -1; }
 	RESULT subServices(ePtr<iSubserviceList> &ptr) { ptr = 0; return -1; }
 	RESULT timeshift(ePtr<iTimeshiftService> &ptr) { ptr = 0; return -1; }
-	RESULT cueSheet(ePtr<iCueSheet> &ptr) { ptr = 0; return -1; }
+//	RESULT cueSheet(ePtr<iCueSheet> &ptr) { ptr = 0; return -1; }
+
+		// iCueSheet
+	PyObject *getCutList();
+	void setCutList(SWIG_PYOBJECT(ePyObject));
+	void setCutListEnable(int enable);
 
 	RESULT rdsDecoder(ePtr<iRdsDecoder> &ptr) { ptr = 0; return -1; }
 	RESULT keys(ePtr<iServiceKeys> &ptr) { ptr = 0; return -1; }
@@ -163,9 +183,7 @@ public:
 	RESULT getEvent(ePtr<eServiceEvent> &evt, int nownext);
 	int getInfo(int w);
 	std::string getInfoString(int w);
-#ifndef ENABLE_LIBEPLAYER3
 	ePtr<iServiceInfoContainer> getInfoObject(int w);
-#endif
 
 		// iAudioTrackSelection
 	int getNumberOfTracks();
@@ -194,7 +212,6 @@ public:
 	void setAC3Delay(int);
 	void setPCMDelay(int);
 
-#ifndef ENABLE_LIBEPLAYER3
 	struct audioStream
 	{
 		GstPad* pad;
@@ -227,38 +244,6 @@ public:
 		{
 		}
 	};
-#else
-	struct audioStream
-	{
-		audiotype_t type;
-		std::string language_code; /* iso-639, if available. */
-		std::string codec; /* clear text codec description */
-		audioStream()
-			:type(atUnknown)
-		{
-		}
-	};
-	struct subtitleStream
-	{
-		subtype_t type;
-		std::string language_code; /* iso-639, if available. */
-		int id;
-		subtitleStream()
-		{
-		}
-	};
-	struct sourceStream
-	{
-		audiotype_t audiotype;
-		containertype_t containertype;
-		bool is_video;
-		bool is_streaming;
-		sourceStream()
-			:audiotype(atUnknown), containertype(ctNone), is_video(false), is_streaming(false)
-		{
-		}
-	};
-#endif
 	struct bufferInfo
 	{
 		gint bufferPercent;
@@ -281,6 +266,26 @@ protected:
 	ePtr<eServiceEvent> m_event_now, m_event_next;
 	void updateEpgCacheNowNext();
 
+		/* cuesheet */
+	struct cueEntry
+	{
+		pts_t where;
+		unsigned int what;
+
+		bool operator < (const struct cueEntry &o) const
+		{
+			return where < o.where;
+		}
+		cueEntry(const pts_t &where, unsigned int what) :
+			where(where), what(what)
+		{
+		}
+	};
+
+	std::multiset<cueEntry> m_cue_entries;
+	int m_cuesheet_changed, m_cutlist_enabled;
+	void loadCuesheet();
+	void saveCuesheet();
 private:
 	static int pcm_delay;
 	static int ac3_delay;
@@ -291,18 +296,24 @@ private:
 	std::vector<audioStream> m_audioStreams;
 	std::vector<subtitleStream> m_subtitleStreams;
 	iSubtitleUser *m_subtitle_widget;
-#ifndef ENABLE_LIBEPLAYER3
 	gdouble m_currentTrickRatio;
-#else
-	int m_currentTrickRatio;
-#endif
 	friend class eServiceFactoryMP3;
 	eServiceReference m_ref;
 	int m_buffer_size;
-#ifndef ENABLE_LIBEPLAYER3
 	int m_ignore_buffering_messages;
 	bool m_is_live;
 	bool m_use_prefillbuffer;
+	bool m_paused;
+	bool m_seek_paused;
+	/* cuesheet load check */
+	bool m_cuesheet_loaded;
+	/* servicemMP3 chapter TOC support CVR */
+#if GST_VERSION_MAJOR >= 1
+	bool m_use_chapter_entries;
+	/* CVR needed for user requested media pause */
+	bool m_user_paused;
+	/* last used seek position gst-1 only */
+	gint64 m_last_seek_pos;
 #endif
 	bufferInfo m_bufferInfo;
 	errorInfo m_errorInfo;
@@ -314,37 +325,9 @@ private:
 		stIdle, stRunning, stStopped,
 	};
 	int m_state;
-#ifndef ENABLE_LIBEPLAYER3
 	GstElement *m_gst_playbin, *audioSink, *videoSink;
 	GstTagList *m_stream_tags;
 
-	class GstMessageContainer: public iObject
-	{
-		DECLARE_REF(GstMessageContainer);
-		GstMessage *messagePointer;
-		GstPad *messagePad;
-		GstBuffer *messageBuffer;
-		int messageType;
-
-	public:
-		GstMessageContainer(int type, GstMessage *msg, GstPad *pad, GstBuffer *buffer)
-		{
-			messagePointer = msg;
-			messagePad = pad;
-			messageBuffer = buffer;
-			messageType = type;
-		}
-		~GstMessageContainer()
-		{
-			if (messagePointer) gst_message_unref(messagePointer);
-			if (messagePad) gst_object_unref(messagePad);
-			if (messageBuffer) gst_buffer_unref(messageBuffer);
-		}
-		int getType() { return messageType; }
-		operator GstMessage *() { return messagePointer; }
-		operator GstPad *() { return messagePad; }
-		operator GstBuffer *() { return messageBuffer; }
-	};
 	eFixedMessagePump<ePtr<GstMessageContainer> > m_pump;
 
 	audiotype_t gstCheckAudioPad(GstStructure* structure);
@@ -357,24 +340,14 @@ private:
 	GstPad* gstCreateSubtitleSink(eServiceMP3* _this, subtype_t type);
 	void gstPoll(ePtr<GstMessageContainer> const &);
 	static void playbinNotifySource(GObject *object, GParamSpec *unused, gpointer user_data);
+#if GST_VERSION_MAJOR < 1
 	static gint match_sinktype(GstElement *element, gpointer type);
-	static void handleElementAdded(GstBin *bin, GstElement *element, gpointer user_data);
 #else
-	Context_t * player;
-
-	struct Message
-	{
-		Message()
-			:type(-1)
-		{}
-		Message(int type)
-			:type(type)
-		{}
-		int type;
-	};
-	eFixedMessagePump<Message> m_pump;
-	static void eplayerCBsubtitleAvail(long int duration_ns, size_t len, char * buffer, void* user_data);
+/* TOC processing CVR */
+	void HandleTocEntry(GstMessage *msg);
+	static gint match_sinktype(const GValue *velement, const gchar *type);
 #endif
+	static void handleElementAdded(GstBin *bin, GstElement *element, gpointer user_data);
 
 	struct subtitle_page_t
 	{
@@ -398,23 +371,17 @@ private:
 	int m_decoder_time_valid_state;
 
 	void pushSubtitles();
-#ifndef ENABLE_LIBEPLAYER3
 	void pullSubtitle(GstBuffer *buffer);
-#endif
 	void sourceTimeout();
 	sourceStream m_sourceinfo;
-#ifndef ENABLE_LIBEPLAYER3
 	gulong m_subs_to_pull_handler_id;
-#endif
 
 	RESULT seekToImpl(pts_t to);
 
 	gint m_aspect, m_width, m_height, m_framerate, m_progressive;
 	std::string m_useragent;
-#ifndef ENABLE_LIBEPLAYER3
 	std::string m_extra_headers;
 	RESULT trickSeek(gdouble ratio);
-#endif
 };
 
 #endif

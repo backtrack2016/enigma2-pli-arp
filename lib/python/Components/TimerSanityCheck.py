@@ -1,7 +1,8 @@
 import NavigationInstance
+from config import config
 from time import localtime, mktime, gmtime
 from ServiceReference import ServiceReference
-from enigma import iServiceInformation, eServiceCenter, eServiceReference
+from enigma import iServiceInformation, eServiceCenter, eServiceReference, getBestPlayableServiceReference
 from timer import TimerEntry
 
 class TimerSanityCheck:
@@ -16,6 +17,8 @@ class TimerSanityCheck:
 		self.eflag = 1
 
 	def check(self, ext_timer=1):
+		if not config.usage.timer_sanity_check_enabled.value:
+			return True
 		if ext_timer != 1:
 			self.newtimer = ext_timer
 		if self.newtimer is None:
@@ -31,23 +34,22 @@ class TimerSanityCheck:
 		if self.newtimer is not None and self.newtimer.service_ref.ref.valid():
 			self.simultimer = [ self.newtimer ]
 			for timer in self.timerlist:
-				if (timer == self.newtimer):
+				if timer == self.newtimer:
 					return True
-				else:
-					if timer.begin == self.newtimer.begin:
-						fl1 = timer.service_ref.ref.flags & eServiceReference.isGroup
-						fl2 = self.newtimer.service_ref.ref.flags & eServiceReference.isGroup
-						if fl1 != fl2:
-							return False
-						if fl1: #is group
-							return timer.service_ref.ref.getPath() == self.newtimer.service_ref.ref.getPath()
-						getUnsignedDataRef1 = timer.service_ref.ref.getUnsignedData
-						getUnsignedDataRef2 = self.newtimer.service_ref.ref.getUnsignedData
-						for x in (1, 2, 3, 4):
-							if getUnsignedDataRef1(x) != getUnsignedDataRef2(x):
-								break;
-						else:
+				if self.newtimer.begin >= timer.begin and self.newtimer.end <= timer.end:
+					if timer.justplay and not self.newtimer.justplay:
+						continue
+					if timer.service_ref.ref.flags & eServiceReference.isGroup:
+						if self.newtimer.service_ref.ref.flags & eServiceReference.isGroup and timer.service_ref.ref.getPath() == self.newtimer.service_ref.ref.getPath():
 							return True
+						continue
+					getUnsignedDataRef1 = timer.service_ref.ref.getUnsignedData
+					getUnsignedDataRef2 = self.newtimer.service_ref.ref.getUnsignedData
+					for x in (1, 2, 3, 4):
+						if getUnsignedDataRef1(x) != getUnsignedDataRef2(x):
+							break;
+					else:
+						return True
 		return False
 
 	def checkTimerlist(self, ext_timer=1):
@@ -172,14 +174,18 @@ class TimerSanityCheck:
 				timer = self.timerlist[event[2]]
 			if event[1] == self.bflag:
 				tunerType = [ ]
-				fakeRecService = NavigationInstance.instance.recordService(timer.service_ref, True)
+				if timer.service_ref.ref and timer.service_ref.ref.flags & eServiceReference.isGroup:
+					fakeRecService = NavigationInstance.instance.recordService(getBestPlayableServiceReference(timer.service_ref.ref, eServiceReference(), True), True)
+				else:
+					fakeRecService = NavigationInstance.instance.recordService(timer.service_ref, True)
 				if fakeRecService:
 					fakeRecResult = fakeRecService.start(True)
 				else:
 					fakeRecResult = -1
 				if not fakeRecResult: # tune okay
-					feinfo = fakeRecService.frontendInfo().getFrontendData()
-					tunerType.append(feinfo.get("tuner_type"))
+					if hasattr(fakeRecService, 'frontendInfo') and hasattr(fakeRecService.frontendInfo(), 'getFrontendData'):
+						feinfo = fakeRecService.frontendInfo().getFrontendData()
+						tunerType.append(feinfo.get("tuner_type"))
 				else: # tune failed.. so we must go another way to get service type (DVB-S, DVB-T, DVB-C)
 
 					def getServiceType(ref): # helper function to get a service type of a service reference

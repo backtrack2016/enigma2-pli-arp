@@ -20,7 +20,8 @@ if [ -x @bindir@/enigma2_pre_start.sh ]; then
 fi
 
 if [ -d /home/root ]; then
-	cd /home/root
+	export HOME=/home/root
+	cd
 fi
 
 LIBS=@libdir@/libopen.so.0.0.0
@@ -45,17 +46,12 @@ case $ret in
 		/sbin/reboot
 		;;
 	3)
-		rm -fR /home/root/.gstreamer-0.10
 		cat /etc/videomode > /proc/stb/video/videomode
 		echo "0" > /proc/progress
+		@bindir@/showiframe -p /boot/bootlogo.mvi &
 		/bin/showiframe -p /boot/bootlogo.mvi &
 		;;
 	4)
-		/sbin/rmmod lcd
-		/usr/sbin/fpupgrade --upgrade 2>&1 | tee /home/root/fpupgrade.log
-		sleep 1;
-		/sbin/rmmod fp
-		/sbin/modprobe fp
 		/sbin/reboot
 		;;
 	5)

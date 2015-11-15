@@ -1,4 +1,5 @@
 from Screens.Screen import Screen
+from Screens.Dish import Dishpip
 from enigma import ePoint, eSize, eRect, eServiceCenter, getBestPlayableServiceReference, eServiceReference, eTimer
 from Components.SystemInfo import SystemInfo
 from Components.VideoWindow import VideoWindow
@@ -51,6 +52,7 @@ class PictureInPicture(Screen):
 		Screen.__init__(self, session)
 		self["video"] = VideoWindow()
 		self.pipActive = session.instantiateDialog(PictureInPictureZapping)
+		self.dishpipActive = session.instantiateDialog(Dishpip)
 		self.currentService = None
 		self.currentServiceReference = None
 
@@ -74,6 +76,8 @@ class PictureInPicture(Screen):
 		del self.pipservice
 		self.setExternalPiP(False)
 		self.setSizePosMainWindow()
+		if hasattr(self, "dishpipActive") and self.dishpipActive is not None:
+			self.dishpipActive.setHide()
 
 	def relocate(self):
 		x = config.av.pip.value[0]
@@ -82,6 +86,19 @@ class PictureInPicture(Screen):
 		h = config.av.pip.value[3]
 		self.move(x, y)
 		self.resize(w, h)
+
+	def fixPiPSize(self):
+		# Hack to fix PiP size and position on spark
+		x = config.av.pip.value[0]
+		y = config.av.pip.value[1]
+		w = config.av.pip.value[2]
+		h = config.av.pip.value[3]
+		if x > 0:
+			x -= 1
+		else:
+			x += 1
+		self.resize(w, h)
+		self.move(x, y)
 
 	def LayoutFinished(self):
 		self.onLayoutFinish.remove(self.LayoutFinished)
@@ -181,6 +198,8 @@ class PictureInPicture(Screen):
 				return False
 			self.pipservice = eServiceCenter.getInstance().play(ref)
 			if self.pipservice and not self.pipservice.setTarget(1):
+				if hasattr(self, "dishpipActive") and self.dishpipActive is not None:
+					self.dishpipActive.startPiPService(ref)
 				self.pipservice.start()
 				self.currentService = service
 				self.currentServiceReference = ref

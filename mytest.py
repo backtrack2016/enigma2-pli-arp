@@ -21,6 +21,11 @@ from Screens.SimpleSummary import SimpleSummary
 from sys import stdout, exc_info
 
 profile("Bouquets")
+from Components.config import config, configfile, ConfigText, ConfigYesNo, ConfigInteger, NoSave
+config.misc.load_unlinked_userbouquets = ConfigYesNo(default=True)
+def setLoadUnlinkedUserbouquets(configElement):
+	enigma.eDVBDB.getInstance().setLoadUnlinkedUserbouquets(configElement.value)
+config.misc.load_unlinked_userbouquets.addNotifier(setLoadUnlinkedUserbouquets)
 enigma.eDVBDB.getInstance().reloadBouquets()
 
 profile("ParentalControl")
@@ -35,7 +40,6 @@ from skin import readSkin
 
 profile("LOAD:Tools")
 from Tools.Directories import InitFallbackFiles, resolveFilename, SCOPE_PLUGINS, SCOPE_CURRENT_SKIN
-from Components.config import config, configfile, ConfigText, ConfigYesNo, ConfigInteger, NoSave
 InitFallbackFiles()
 
 profile("config.misc")
@@ -46,6 +50,10 @@ config.misc.startCounter = ConfigInteger(default=0) # number of e2 starts...
 config.misc.standbyCounter = NoSave(ConfigInteger(default=0)) # number of standby
 config.misc.DeepStandby = NoSave(ConfigYesNo(default=False)) # detect deepstandby
 config.misc.RestartUI = ConfigYesNo(default=False) # detect user interface restart
+config.misc.prev_wakeup_time = ConfigInteger(default=0)
+#config.misc.prev_wakeup_time_type is only valid when wakeup_time is not 0
+config.misc.prev_wakeup_time_type = ConfigInteger(default=0)
+# 0 = RecordTimer, 1 = ZapTimer, 2 = Plugins, 3 = WakeupTimer
 config.misc.epgcache_filename = ConfigText(default = "/hdd/epg.dat")
 
 def setEPGCachePath(configElement):
@@ -220,16 +228,6 @@ class Session:
 			self.current_dialog.removeSummary(self.summary)
 			self.popSummary()
 
-	def create(self, screen, arguments, **kwargs):
-		# creates an instance of 'screen' (which is a class)
-		try:
-			return screen(self, *arguments, **kwargs)
-		except:
-			errstr = "Screen %s(%s, %s): %s" % (str(screen), str(arguments), str(kwargs), exc_info()[0])
-			print errstr
-			print_exc(file=stdout)
-			enigma.quitMainloop(5)
-
 	def instantiateDialog(self, screen, *arguments, **kwargs):
 		return self.doInstantiateDialog(screen, arguments, kwargs, self.desktop)
 
@@ -247,28 +245,14 @@ class Session:
 
 	def doInstantiateDialog(self, screen, arguments, kwargs, desktop):
 		# create dialog
-
-		try:
-			dlg = self.create(screen, arguments, **kwargs)
-		except:
-			print 'EXCEPTION IN DIALOG INIT CODE, ABORTING:'
-			print '-'*60
-			print_exc(file=stdout)
-			enigma.quitMainloop(5)
-			print '-'*60
-
+		dlg = screen(self, *arguments, **kwargs)
 		if dlg is None:
 			return
-
 		# read skin data
 		readSkin(dlg, None, dlg.skinName, desktop)
-
 		# create GUI view of this dialog
-		assert desktop is not None
-
 		dlg.setDesktop(desktop)
 		dlg.applySkin()
-
 		return dlg
 
 	def pushCurrent(self):
@@ -437,6 +421,7 @@ from Components.VolumeControl import VolumeControl
 
 def runScreenTest():
 	config.misc.startCounter.value += 1
+	config.misc.startCounter.save()
 
 	profile("readPluginList")
 	plugins.readPluginList(resolveFilename(SCOPE_PLUGINS))
@@ -497,17 +482,17 @@ def runScreenTest():
 	profile_final()
 	runReactor()
 
-	config.misc.startCounter.save()
-
 	profile("wakeup")
 	from time import time, strftime, localtime
 	from Tools.StbHardware import setFPWakeuptime, getFPWakeuptime, setRTCtime
+	from Screens.SleepTimerEdit import isNextWakeupTime
 	#get currentTime
 	nowTime = time()
 	wakeupList = [
 		x for x in ((session.nav.RecordTimer.getNextRecordingTime(), 0),
 					(session.nav.RecordTimer.getNextZapTime(isWakeup=True), 1),
-					(plugins.getNextWakeupTime(), 2))
+					(plugins.getNextWakeupTime(), 2),
+					(isNextWakeupTime(), 3))
 		if x[0] != -1
 	]
 	wakeupList.sort()
@@ -523,6 +508,12 @@ def runScreenTest():
 			setRTCtime(nowTime)
 		print "set wakeup time to", strftime("%Y/%m/%d %H:%M", localtime(wptime))
 		setFPWakeuptime(wptime)
+		config.misc.prev_wakeup_time.value = startTime[0]
+		config.misc.prev_wakeup_time_type.value = startTime[1]
+		config.misc.prev_wakeup_time_type.save()
+	elif config.misc.prev_wakeup_time.value != 0:
+		config.misc.prev_wakeup_time.value = 0
+		config.misc.prev_wakeup_time.save()
 
 	profile("stopService")
 	session.nav.stopService()

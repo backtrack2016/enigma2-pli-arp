@@ -213,6 +213,7 @@ eAVSwitch()
 
 eDVBVolumecontrol = None
 
+#--->
 #class eRFmod:
 #	@classmethod
 #	def getInstance(self):
@@ -240,9 +241,9 @@ eDVBVolumecontrol = None
 #
 #	def setFinetune(self, value):
 #		print "[eRFmod] set finetune to %d" % value
-#
-#eRFmod()
 
+#eRFmod()
+#---<
 
 class eDBoxLCD:
 	@classmethod
@@ -357,8 +358,10 @@ def init_all():
 	import Components.SetupDevices
 	Components.SetupDevices.InitSetupDevices()
 
+#--->
 #	import Components.RFmod
 #	Components.RFmod.InitRFmod()
+#---<
 
 	import Screens.Ci
 	Screens.Ci.InitCiConfig()

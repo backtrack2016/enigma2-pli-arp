@@ -16,7 +16,7 @@ class Input(VariableText, HTMLComponent, GUIComponent, NumericalTextInput):
 		GUIComponent.__init__(self)
 		VariableText.__init__(self)
 		self.type = type
-		self.allmarked = allMarked and (text != "") and (type != self.PIN)
+		self.allmarked = allMarked and (text != "") and (type is not self.PIN)
 		self.maxSize = maxSize
 		self.currPos = currPos
 		self.visible_width = visible_width
@@ -43,14 +43,14 @@ class Input(VariableText, HTMLComponent, GUIComponent, NumericalTextInput):
 		else:
 			self.setMarkedPos(self.currPos-self.offset)
 		if self.visible_width:
-			if self.type == self.PIN:
+			if self.type is self.PIN:
 				self.text = ""
 				for x in self.Text[self.offset:self.offset+self.visible_width]:
 					self.text += (x==" " and " " or "*")
 			else:
 				self.text = self.Text[self.offset:self.offset+self.visible_width].encode("utf-8") + " "
 		else:
-			if self.type == self.PIN:
+			if self.type is self.PIN:
 				self.text = ""
 				for x in self.Text:
 					self.text += (x==" " and " " or "*")
@@ -62,11 +62,14 @@ class Input(VariableText, HTMLComponent, GUIComponent, NumericalTextInput):
 			self.currPos = 0
 			self.Text = u""
 		else:
-			self.Text = text.decode("utf-8", "ignore").decode("utf-8")
+			if isinstance(text, str):
+				self.Text = text.decode("utf-8", "ignore")
+			else:
+				self.Text = text
 		self.update()
 
 	def getText(self):
-		return self.Text.encode("utf-8")
+		return self.Text.encode('utf-8')
 
 	def createWidget(self, parent):
 		if self.allmarked:
@@ -94,13 +97,13 @@ class Input(VariableText, HTMLComponent, GUIComponent, NumericalTextInput):
 				self.currPos += 1
 
 	def right(self):
-		if self.type == self.TEXT:
+		if self.type is self.TEXT:
 			self.timeout()
 		self.innerright()
 		self.update()
 
 	def left(self):
-		if self.type == self.TEXT:
+		if self.type is self.TEXT:
 			self.timeout()
 		if self.allmarked:
 			if self.maxSize:
@@ -114,7 +117,7 @@ class Input(VariableText, HTMLComponent, GUIComponent, NumericalTextInput):
 
 	def up(self):
 		self.allmarked = False
-		if self.type == self.TEXT:
+		if self.type is self.TEXT:
 			self.timeout()
 		if self.currPos == len(self.Text) or self.Text[self.currPos] == "9" or self.Text[self.currPos] == " ":
 			newNumber = "0"
@@ -125,7 +128,7 @@ class Input(VariableText, HTMLComponent, GUIComponent, NumericalTextInput):
 
 	def down(self):
 		self.allmarked = False
-		if self.type == self.TEXT:
+		if self.type is self.TEXT:
 			self.timeout()
 		if self.currPos == len(self.Text) or self.Text[self.currPos] == "0" or self.Text[self.currPos] == " ":
 			newNumber = "9"
@@ -136,14 +139,14 @@ class Input(VariableText, HTMLComponent, GUIComponent, NumericalTextInput):
 
 	def home(self):
 		self.allmarked = False
-		if self.type == self.TEXT:
+		if self.type is self.TEXT:
 			self.timeout()
 		self.currPos = 0
 		self.update()
 
 	def end(self):
 		self.allmarked = False
-		if self.type == self.TEXT:
+		if self.type is self.TEXT:
 			self.timeout()
 		if self.maxSize:
 			self.currPos = len(self.Text) - 1
@@ -152,7 +155,8 @@ class Input(VariableText, HTMLComponent, GUIComponent, NumericalTextInput):
 		self.update()
 
 	def insertChar(self, ch, pos=False, owr=False, ins=False):
-		self.Text = self.Text.decode("utf-8", "ignore").decode("utf-8")
+		if isinstance(ch, str):
+			ch = ch.decode("utf-8","ignore")
 		if not pos:
 			pos = self.currPos
 		if ins and not self.maxSize:
@@ -168,30 +172,30 @@ class Input(VariableText, HTMLComponent, GUIComponent, NumericalTextInput):
 		if not self.maxSize:
 			self.Text = self.Text[0:pos] + self.Text[pos + 1:]
 		elif self.overwrite:
-			self.Text = self.Text[0:pos] + " " + self.Text[pos + 1:]
+			self.Text = self.Text[0:pos] + u" " + self.Text[pos + 1:]
 		else:
-			self.Text = self.Text[0:pos] + self.Text[pos + 1:] + " "
+			self.Text = self.Text[0:pos] + self.Text[pos + 1:] + u" "
 
 	def deleteAllChars(self):
 		if self.maxSize:
-			self.Text = " " * len(self.Text)
+			self.Text = u" " * len(self.Text)
 		else:
-			self.Text = ""
+			self.Text = u""
 		self.currPos = 0
 
 	def tab(self):
-		if self.type == self.TEXT:
+		if self.type is self.TEXT:
 			self.timeout()
 		if self.allmarked:
 			self.deleteAllChars()
 			self.allmarked = False
 		else:
-			self.insertChar(" ", self.currPos, False, True);
+			self.insertChar(u" ", self.currPos, False, True);
 			self.innerright()
 		self.update()
 
 	def delete(self):
-		if self.type == self.TEXT:
+		if self.type is self.TEXT:
 			self.timeout()
 		if self.allmarked:
 			self.deleteAllChars()
@@ -203,7 +207,7 @@ class Input(VariableText, HTMLComponent, GUIComponent, NumericalTextInput):
 		self.update()
 
 	def deleteBackward(self):
-		if self.type == self.TEXT:
+		if self.type is self.TEXT:
 			self.timeout()
 		if self.allmarked:
 			self.deleteAllChars()
@@ -217,7 +221,7 @@ class Input(VariableText, HTMLComponent, GUIComponent, NumericalTextInput):
 		self.update()
 
 	def deleteForward(self):
-		if self.type == self.TEXT:
+		if self.type is self.TEXT:
 			self.timeout()
 		if self.allmarked:
 			self.deleteAllChars()
@@ -227,13 +231,13 @@ class Input(VariableText, HTMLComponent, GUIComponent, NumericalTextInput):
 		self.update()
 
 	def toggleOverwrite(self):
-		if self.type == self.TEXT:
+		if self.type is self.TEXT:
 			self.timeout()
 		self.overwrite = not self.overwrite
 		self.update()
 
 	def handleAscii(self, code):
-		if self.type == self.TEXT:
+		if self.type is self.TEXT:
 			self.timeout()
 		if self.allmarked:
 			self.deleteAllChars()
@@ -243,17 +247,17 @@ class Input(VariableText, HTMLComponent, GUIComponent, NumericalTextInput):
 		self.update()
 
 	def number(self, number):
-		if self.type == self.TEXT:
+		if self.type is self.TEXT:
 			owr = self.lastKey == number
 			newChar = self.getKey(number)
-		elif self.type == self.PIN or self.type == self.NUMBER:
+		elif self.type is self.PIN or self.type is self.NUMBER:
 			owr = False
 			newChar = str(number)
 		if self.allmarked:
 			self.deleteAllChars()
 			self.allmarked = False
 		self.insertChar(newChar, self.currPos, owr, False);
-		if self.type == self.PIN or self.type == self.NUMBER:
+		if self.type is self.PIN or self.type is self.NUMBER:
 			self.innerright()
 		self.update()
 

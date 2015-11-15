@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 from Components.Converter.Converter import Converter
-from enigma import iServiceInformation, iPlayableService, iPlayableServicePtr,\
- eServiceCenter
+from enigma import iServiceInformation, iPlayableService, iPlayableServicePtr, eServiceCenter
 from ServiceReference import resolveAlternate
 
 from Components.Element import cached
@@ -45,16 +44,16 @@ class ServiceOrbitalPosition(Converter, object):
 				if pos > 1800:
 					pos = 3600 - pos
 					direction = 'W'
-				if self.type == self.SHORT:
+				if self.type is self.SHORT:
 					return "%d.%d%s" % (pos/10, pos%10, direction)
 				else:
-					return "%d.%d\xc2\xb0 %s" % (pos/10, pos%10, direction)
+					return "%d.%d° %s" % (pos/10, pos%10, direction)
 			return tunerType
 		if ref:
 			refString = ref.toString().lower()
 			if "%3a//" in refString:
 				return _("Stream")
-			if refString.startswith("1:134:"):
+			if refString[:6] == "1:134:":
 				return _("Alternative")
 		return ""
 

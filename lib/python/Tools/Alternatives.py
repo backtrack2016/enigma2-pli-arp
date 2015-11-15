@@ -7,11 +7,11 @@ def getAlternativeChannels(service):
 def CompareWithAlternatives(serviceA, serviceB):
 	return serviceA and serviceB and (\
 		serviceA == serviceB or\
-		serviceA.startswith('1:134:') and serviceB in getAlternativeChannels(serviceA) or\
-		serviceB.startswith('1:134:') and serviceA in getAlternativeChannels(serviceB))
+		serviceA[:6] == '1:134:' and serviceB in getAlternativeChannels(serviceA) or\
+		serviceB[:6] == '1:134:' and serviceA in getAlternativeChannels(serviceB))
 
 def GetWithAlternative(service):
-	if service.startswith('1:134:'):
+	if service[:6] == '1:134:':
 		channels = getAlternativeChannels(service)
 		if channels:
 			return channels[0]

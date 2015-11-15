@@ -1,7 +1,9 @@
 from Screen import Screen
+from Screens.ParentalControlSetup import ProtectedScreen
 from enigma import eConsoleAppContainer, eDVBDB
 
-from Components.ActionMap import ActionMap
+from Components.ActionMap import ActionMap, NumberActionMap
+from Components.config import config, ConfigSubsection, ConfigText
 from Components.PluginComponent import plugins
 from Components.PluginList import *
 from Components.Label import Label
@@ -13,13 +15,16 @@ from Screens.MessageBox import MessageBox
 from Screens.ChoiceBox import ChoiceBox
 from Screens.Console import Console
 from Plugins.Plugin import PluginDescriptor
-from Tools.Directories import resolveFilename, SCOPE_PLUGINS, SCOPE_SKIN_IMAGE
+from Tools.Directories import resolveFilename, SCOPE_PLUGINS, SCOPE_CURRENT_SKIN
 from Tools.LoadPixmap import LoadPixmap
 
 from time import time
 import os
 
 language.addCallback(plugins.reloadPlugins)
+
+config.misc.pluginbrowser = ConfigSubsection()
+config.misc.pluginbrowser.plugin_order = ConfigText(default="")
 
 class PluginBrowserSummary(Screen):
 	def __init__(self, session, parent):
@@ -41,9 +46,10 @@ class PluginBrowserSummary(Screen):
 		self["desc"].text = desc
 
 
-class PluginBrowser(Screen):
+class PluginBrowser(Screen, ProtectedScreen):
 	def __init__(self, session):
 		Screen.__init__(self, session)
+		ProtectedScreen.__init__(self)
 
 		self.firsttime = True
 
@@ -53,15 +59,34 @@ class PluginBrowser(Screen):
 		self.list = []
 		self["list"] = PluginList(self.list)
 
-		self["actions"] = ActionMap(["WizardActions"],
+		self["actions"] = ActionMap(["WizardActions","MenuActions"],
 		{
 			"ok": self.save,
 			"back": self.close,
+			"menu": self.exit,
 		})
 		self["PluginDownloadActions"] = ActionMap(["ColorActions"],
 		{
 			"red": self.delete,
 			"green": self.download
+		})
+		self["DirectionActions"] = ActionMap(["DirectionActions"],
+		{
+			"moveUp": self.moveUp,
+			"moveDown": self.moveDown
+		})
+		self["NumberActions"] = NumberActionMap(["NumberActions"],
+		{
+			"1": self.keyNumberGlobal,
+			"2": self.keyNumberGlobal,
+			"3": self.keyNumberGlobal,
+			"4": self.keyNumberGlobal,
+			"5": self.keyNumberGlobal,
+			"6": self.keyNumberGlobal,
+			"7": self.keyNumberGlobal,
+			"8": self.keyNumberGlobal,
+			"9": self.keyNumberGlobal,
+			"0": self.keyNumberGlobal
 		})
 
 		self.onFirstExecBegin.append(self.checkWarnings)
@@ -69,6 +94,12 @@ class PluginBrowser(Screen):
 		self.onChangedEntry = []
 		self["list"].onSelectionChanged.append(self.selectionChanged)
 		self.onLayoutFinish.append(self.saveListsize)
+
+	def isProtected(self):
+		return config.ParentalControl.setuppinactive.value and (not config.ParentalControl.config_sections.main_menu.value or hasattr(self.session, 'infobar') and self.session.infobar is None) and config.ParentalControl.config_sections.plugin_browser.value
+
+	def exit(self):
+		self.close(True)
 
 	def saveListsize(self):
 		listsize = self["list"].instance.size()
@@ -105,9 +136,58 @@ class PluginBrowser(Screen):
 		plugin = self["list"].l.getCurrentSelection()[0]
 		plugin(session=self.session)
 
+	def setDefaultList(self, answer):
+		if answer:
+			config.misc.pluginbrowser.plugin_order.value = ""
+			config.misc.pluginbrowser.plugin_order.save()
+			self.updateList()
+
+	def keyNumberGlobal(self, number):
+		if number == 0:
+			if len(self.list) > 0 and config.misc.pluginbrowser.plugin_order.value != "":
+				self.session.openWithCallback(self.setDefaultList, MessageBox, _("Sort plugins list to default?"), MessageBox.TYPE_YESNO)
+		else:
+			real_number = number - 1
+			if real_number < len(self.list):
+				self["list"].moveToIndex(real_number)
+				self.run()
+
+	def moveUp(self):
+		self.move(-1)
+
+	def moveDown(self):
+		self.move(1)
+
+	def move(self, direction):
+		if len(self.list) > 1:
+			currentIndex = self["list"].getSelectionIndex()
+			swapIndex = (currentIndex + direction) % len(self.list)
+			if currentIndex == 0 and swapIndex != 1:
+				self.list = self.list[1:] + [self.list[0]]
+			elif swapIndex == 0 and currentIndex != 1:
+				self.list = [self.list[-1]] + self.list[:-1]
+			else:
+				self.list[currentIndex], self.list[swapIndex] = self.list[swapIndex], self.list[currentIndex]
+			self["list"].l.setList(self.list)
+			if direction == 1:
+				self["list"].down()
+			else:
+				self["list"].up()
+			plugin_order = []
+			for x in self.list:
+				plugin_order.append(x[0].path[24:])
+			config.misc.pluginbrowser.plugin_order.value = ",".join(plugin_order)
+			config.misc.pluginbrowser.plugin_order.save()
+
 	def updateList(self):
-		self.pluginlist = plugins.getPlugins(PluginDescriptor.WHERE_PLUGINMENU)
-		self.list = [PluginEntryComponent(plugin, self.listWidth) for plugin in self.pluginlist]
+		self.list = []
+		pluginlist = plugins.getPlugins(PluginDescriptor.WHERE_PLUGINMENU)[:]
+		for x in config.misc.pluginbrowser.plugin_order.value.split(","):
+			plugin = list(plugin for plugin in pluginlist if plugin.path[24:] == x)
+			if plugin:
+				self.list.append(PluginEntryComponent(plugin[0], self.listWidth))
+				pluginlist.remove(plugin[0])
+		self.list = self.list + [PluginEntryComponent(plugin, self.listWidth) for plugin in pluginlist]
 		self["list"].l.setList(self.list)
 
 	def delete(self):
@@ -159,9 +239,9 @@ class PluginDownloadBrowser(Screen):
 		self.install_settings_name = ''
 		self.remove_settings_name = ''
 
-		if self.type == self.DOWNLOAD:
+		if self.type is self.DOWNLOAD:
 			self["text"] = Label(_("Downloading plugin information. Please wait..."))
-		elif self.type == self.REMOVE:
+		elif self.type is self.REMOVE:
 			self["text"] = Label(_("Getting plugin information. Please wait..."))
 
 		self.run = 0
@@ -194,9 +274,9 @@ class PluginDownloadBrowser(Screen):
 				self.expanded.append(sel)
 			self.updateList()
 		else:
-			if self.type == self.DOWNLOAD:
+			if self.type is self.DOWNLOAD:
 				self.session.openWithCallback(self.runInstall, MessageBox, _("Do you really want to download\nthe plugin \"%s\"?") % sel.name)
-			elif self.type == self.REMOVE:
+			elif self.type is self.REMOVE:
 				self.session.openWithCallback(self.runInstall, MessageBox, _("Do you really want to remove\nthe plugin \"%s\"?") % sel.name)
 
 	def requestClose(self):
@@ -220,7 +300,7 @@ class PluginDownloadBrowser(Screen):
 	def installDestinationCallback(self, result):
 		if result is not None:
 			dest = result[1]
-			if dest.startswith('/'):
+			if dest[0] == '/':
 				# Custom install path, add it to the list too
 				dest = os.path.normpath(dest)
 				extra = '--dest %s:%s -d %s' % (dest,dest,dest)
@@ -233,8 +313,8 @@ class PluginDownloadBrowser(Screen):
 
 	def runInstall(self, val):
 		if val:
-			if self.type == self.DOWNLOAD:
-				if self["list"].l.getCurrentSelection()[0].name.startswith("picons-"):
+			if self.type is self.DOWNLOAD:
+				if self["list"].l.getCurrentSelection()[0].name[:7] == "picons-":
 					supported_filesystems = frozenset(('ext4', 'ext3', 'ext2', 'reiser', 'reiser4', 'jffs2', 'ubifs', 'rootfs'))
 					candidates = []
 					import Components.Harddisk
@@ -248,12 +328,12 @@ class PluginDownloadBrowser(Screen):
 						self.session.openWithCallback(self.installDestinationCallback, ChoiceBox, title=_("Install picons on"), list=candidates)
 					return
 				self.install_settings_name = self["list"].l.getCurrentSelection()[0].name
-				if self["list"].l.getCurrentSelection()[0].name.startswith('settings-'):
+				if self["list"].l.getCurrentSelection()[0].name[:9] == "settings-":
 					self.check_settings = True
 					self.startIpkgListInstalled(self.PLUGIN_PREFIX + 'settings-*')
 				else:
 					self.runSettingsInstall()
-			elif self.type == self.REMOVE:
+			elif self.type is self.REMOVE:
 				self.doRemove(self.installFinished, self["list"].l.getCurrentSelection()[0].name)
 
 	def doRemove(self, callback, pkgname):
@@ -270,9 +350,9 @@ class PluginDownloadBrowser(Screen):
 		self.doInstall(self.installFinished, self.install_settings_name)
 
 	def setWindowTitle(self):
-		if self.type == self.DOWNLOAD:
+		if self.type is self.DOWNLOAD:
 			self.setTitle(_("Downloadable new plugins"))
-		elif self.type == self.REMOVE:
+		elif self.type is self.REMOVE:
 			self.setTitle(_("Remove plugins"))
 
 	def startIpkgListInstalled(self, pkgname = PLUGIN_PREFIX + '*'):
@@ -286,7 +366,7 @@ class PluginDownloadBrowser(Screen):
 		self["list"].instance.hide()
 		self.listWidth = listsize.width()
 		self.listHeight = listsize.height()
-		if self.type == self.DOWNLOAD:
+		if self.type is self.DOWNLOAD:
 			if self.needupdate and not PluginDownloadBrowser.lastDownloadDate or (time() - PluginDownloadBrowser.lastDownloadDate) > 3600:
 				# Only update from internet once per hour
 				self.container.execute(self.ipkg + " update")
@@ -294,7 +374,7 @@ class PluginDownloadBrowser(Screen):
 			else:
 				self.run = 1
 				self.startIpkgListInstalled()
-		elif self.type == self.REMOVE:
+		elif self.type is self.REMOVE:
 			self.run = 1
 			self.startIpkgListInstalled()
 
@@ -314,7 +394,7 @@ class PluginDownloadBrowser(Screen):
 				self.pluginlist.remove(plugin)
 				break
 		self.plugins_changed = True
-		if self["list"].l.getCurrentSelection()[0].name.startswith("settings-"):
+		if self["list"].l.getCurrentSelection()[0].name[:9] == "settings-":
 			self.reload_settings = True
 		self.expanded = []
 		self.updateList()
@@ -328,9 +408,9 @@ class PluginDownloadBrowser(Screen):
 		self.remainingdata = ""
 		if self.run == 0:
 			self.run = 1
-			if self.type == self.DOWNLOAD:
+			if self.type is self.DOWNLOAD:
 				self.startIpkgListInstalled()
-		elif self.run == 1 and self.type == self.DOWNLOAD:
+		elif self.run is 1 and self.type is self.DOWNLOAD:
 			self.run = 2
 			from Components import opkg
 			pluginlist = []
@@ -370,14 +450,14 @@ class PluginDownloadBrowser(Screen):
 			self.session.openWithCallback(self.runSettingsRemove, MessageBox, _('You already have a channel list installed,\nwould you like to remove\n"%s"?') % self.remove_settings_name)
 			return
 
-		if self.run == 1:
+		if self.run is 1:
 			for x in lines:
 				plugin = x.split(" - ", 2)
 				# 'opkg list_installed' only returns name + version, no description field
 				if len(plugin) >= 2:
-					if not plugin[0].endswith('-dev') and not plugin[0].endswith('-staticdev') and not plugin[0].endswith('-dbg') and not plugin[0].endswith('-doc') and not plugin[0].endswith('-src'):
+					if plugin[0][-4:] != '-dev' and plugin[0][-10:] != '-staticdev' and plugin[0][-4:] != '-dbg' and plugin[0][-4:] != '-doc' and plugin[0][-4:] != '-src':
 						if plugin[0] not in self.installedplugins:
-							if self.type == self.DOWNLOAD:
+							if self.type is self.DOWNLOAD:
 								self.installedplugins.append(plugin[0])
 							else:
 								if len(plugin) == 2:
@@ -387,9 +467,9 @@ class PluginDownloadBrowser(Screen):
 
 	def updateList(self):
 		list = []
-		expandableIcon = LoadPixmap(resolveFilename(SCOPE_SKIN_IMAGE, "skin_default/expandable-plugins.png"))
-		expandedIcon = LoadPixmap(resolveFilename(SCOPE_SKIN_IMAGE, "skin_default/expanded-plugins.png"))
-		verticallineIcon = LoadPixmap(resolveFilename(SCOPE_SKIN_IMAGE, "skin_default/verticalline-plugins.png"))
+		expandableIcon = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/expandable-plugins.png"))
+		expandedIcon = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/expanded-plugins.png"))
+		verticallineIcon = LoadPixmap(resolveFilename(SCOPE_CURRENT_SKIN, "skin_default/verticalline-plugins.png"))
 
 		self.plugins = {}
 		for x in self.pluginlist:

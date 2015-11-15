@@ -40,7 +40,6 @@ is usually caused by not marking PSignals as immutable.
 #include <lib/base/smartptr.h>
 #include <lib/base/eenv.h>
 #include <lib/base/eerror.h>
-#include <lib/base/etpm.h>
 #include <lib/base/message.h>
 #include <lib/driver/rc.h>
 #include <lib/driver/rcinput_swig.h>
@@ -93,6 +92,8 @@ is usually caused by not marking PSignals as immutable.
 #include <lib/dvb/cahandler.h>
 #include <lib/dvb/fastscan.h>
 #include <lib/dvb/cablescan.h>
+#include <lib/dvb/encoder.h>
+#include <lib/dvb/streamserver.h>
 #include <lib/components/scan.h>
 #include <lib/components/file_eraser.h>
 #include <lib/components/tuxtxtapp.h>
@@ -188,7 +189,6 @@ typedef long time_t;
 %immutable eTuxtxtApp::appClosed;
 %immutable iDVBChannel::receivedTsidOnid;
 %include <lib/base/message.h>
-%include <lib/base/etpm.h>
 %include <lib/driver/rc.h>
 %include <lib/driver/rcinput_swig.h>
 %include <lib/gdi/fb.h>
@@ -249,6 +249,7 @@ typedef long time_t;
 %include <lib/python/python.h>
 %include <lib/python/pythonconfig.h>
 %include <lib/gdi/picload.h>
+%include <lib/dvb/streamserver.h>
 %include <lib/driver/vfd.h>
 /**************  eptr  **************/
 
@@ -395,6 +396,16 @@ void setEnableTtCachingOnOff(int onoff)
 }
 %}
 
+int getUsedEncoderCount();
+%{
+int getUsedEncoderCount()
+{
+	eEncoder *encoders = eEncoder::getInstance();
+	if (encoders) return encoders->getUsedEncoderCount();
+	return 0;
+}
+%}
+
 /************** temp *****************/
 
 	/* need a better place for this, i agree. */
@@ -406,6 +417,7 @@ extern int getPrevAsciiCode();
 extern void addFont(const char *filename, const char *alias, int scale_factor, int is_replacement, int renderflags = 0);
 extern const char *getEnigmaVersionString();
 extern const char *getBoxType();
+extern const char *getGStreamerVersionString();
 extern void dump_malloc_stats(void);
 %}
 
@@ -416,6 +428,7 @@ extern void quitMainloop(int exit_code);
 extern eApplication *getApplication();
 extern const char *getEnigmaVersionString();
 extern const char *getBoxType();
+extern const char *getGStreamerVersionString();
 extern void dump_malloc_stats(void);
 
 %include <lib/python/python_console.i>

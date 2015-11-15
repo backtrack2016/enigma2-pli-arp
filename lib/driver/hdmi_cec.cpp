@@ -7,6 +7,7 @@
 #include <lib/base/init_num.h>
 #include <lib/base/eerror.h>
 #include <lib/base/ebase.h>
+#include <lib/base/nconfig.h>
 #include <lib/driver/input_fake.h>
 #include <lib/driver/hdmi_cec.h>
 #include <lib/driver/avswitch.h>
@@ -52,10 +53,12 @@ eHdmiCEC::eHdmiCEC()
 	logicalAddress = 1;
 	deviceType = 1; /* default: recorder */
 #ifdef DREAMBOX
-	hdmiFd = ::open("/dev/misc/hdmi_cec0", O_RDWR | O_NONBLOCK);
+#define HDMIDEV "/dev/misc/hdmi_cec0"
 #else
-	hdmiFd = ::open("/dev/hdmi_cec", O_RDWR | O_NONBLOCK);
+#define HDMIDEV "/dev/hdmi_cec"
 #endif
+
+	hdmiFd = ::open(HDMIDEV, O_RDWR | O_NONBLOCK | O_CLOEXEC);
 	if (hdmiFd >= 0)
 	{
 
@@ -68,6 +71,10 @@ eHdmiCEC::eHdmiCEC()
 		getAddressInfo();
 		messageNotifier = eSocketNotifier::create(eApp, hdmiFd, eSocketNotifier::Read | eSocketNotifier::Priority);
 		CONNECT(messageNotifier->activated, eHdmiCEC::hdmiEvent);
+	}
+	else
+	{
+		eDebug("[eHdmiCEC] cannot open %s: %m", HDMIDEV);
 	}
 }
 
@@ -146,7 +153,7 @@ void eHdmiCEC::getAddressInfo()
 			{
 				if (memcmp(physicalAddress, addressinfo.physical, sizeof(physicalAddress)))
 				{
-					eDebug("eHdmiCEC: detected physical address change: %02X%02X --> %02X%02X", physicalAddress[0], physicalAddress[1], addressinfo.physical[0], addressinfo.physical[1]);
+					eDebug("[eHdmiCEC] detected physical address change: %02X%02X --> %02X%02X", physicalAddress[0], physicalAddress[1], addressinfo.physical[0], addressinfo.physical[1]);
 					memcpy(physicalAddress, addressinfo.physical, sizeof(physicalAddress));
 					reportPhysicalAddress();
 					/* emit */ addressChanged((physicalAddress[0] << 8) | physicalAddress[1]);
@@ -225,31 +232,39 @@ void eHdmiCEC::hdmiEvent(int what)
 			}
 		}
 #endif
-		if (hasdata)
+		bool hdmicec_enabled = eConfigManager::getConfigBoolValue("config.hdmicec.enabled", false);
+		if (hasdata && hdmicec_enabled)
 		{
 			bool keypressed = false;
 			static unsigned char pressedkey = 0;
 
-			eDebugNoNewLine("eHdmiCEC: received message");
+			eDebugNoNewLineStart("[eHdmiCEC] received message");
 			for (int i = 0; i < rxmessage.length; i++)
 			{
 				eDebugNoNewLine(" %02X", rxmessage.data[i]);
 			}
-			eDebug(" -> %02X ", rxmessage.address);
-			switch (rxmessage.data[0])
+			eDebugNoNewLine(" -> %02X\n", rxmessage.address);
+			bool hdmicec_report_active_menu = eConfigManager::getConfigBoolValue("config.hdmicec.report_active_menu", false);
+			if (hdmicec_report_active_menu)
 			{
-				case 0x44: /* key pressed */
-					keypressed = true;
-					pressedkey = rxmessage.data[1];
-				case 0x45: /* key released */
+				switch (rxmessage.data[0])
 				{
-					long code = translateKey(pressedkey);
-					if (keypressed) code |= 0x80000000;
-					for (std::list<eRCDevice*>::iterator i(listeners.begin()); i != listeners.end(); ++i)
+					case 0x44: /* key pressed */
+						keypressed = true;
+						pressedkey = rxmessage.data[1];
+					case 0x45: /* key released */
 					{
-						(*i)->handleCode(code);
+						long code = translateKey(pressedkey);
+						if (code)
+						{
+							if (keypressed) code |= 0x80000000;
+							for (std::list<eRCDevice*>::iterator i(listeners.begin()); i != listeners.end(); ++i)
+							{
+								(*i)->handleCode(code);
+							}
+							break;
+						}
 					}
-					break;
 				}
 			}
 			ePtr<iCECMessage> msg = new eCECMessage(rxmessage.address, rxmessage.data[0], (char*)&rxmessage.data[1], rxmessage.length);
@@ -264,64 +279,72 @@ long eHdmiCEC::translateKey(unsigned char code)
 	switch (code)
 	{
 		case 0x32:
-			key = 0x8b;
+			key = 0x8b; //KEY_MENU
 			break;
 		case 0x20:
-			key = 0x0b;
+			key = 0x0b; //KEY_0
 			break;
 		case 0x21:
-			key = 0x02;
+			key = 0x02; //KEY_1
 			break;
 		case 0x22:
-			key = 0x03;
+			key = 0x03; //KEY_2
 			break;
 		case 0x23:
-			key = 0x04;
+			key = 0x04; //KEY_3
 			break;
 		case 0x24:
-			key = 0x05;
+			key = 0x05; //KEY_4
 			break;
 		case 0x25:
-			key = 0x06;
+			key = 0x06; //KEY_5
 			break;
 		case 0x26:
-			key = 0x07;
+			key = 0x07; //KEY_6
 			break;
 		case 0x27:
-			key = 0x08;
+			key = 0x08; //KEY_7
 			break;
 		case 0x28:
-			key = 0x09;
+			key = 0x09; //KEY_8
 			break;
 		case 0x29:
-			key = 0x0a;
+			key = 0x0a; //KEY_9
 			break;
 		case 0x30:
-			key = 0x192;
+			key = 0x192; //KEY_CHANNELUP
 			break;
 		case 0x31:
-			key = 0x193;
+			key = 0x193; //KEY_CHANNELDOWN
+			break;
+		case 0x40:
+			key = 0x74; //KEY_POWER
 			break;
 		case 0x40:
 			key = 0x74;
 			break;
 		case 0x44:
-			key = 0xcf;
+		case 0x60:
+			key = 0xcf; //KEY_PLAY
 			break;
 		case 0x45:
-			key = 0x80;
+			key = 0x80; //KEY_STOP
 			break;
 		case 0x46:
-			key = 0x77;
+			key = 0x77; //KEY_PAUSE
 			break;
 		case 0x47:
-			key = 0xa7;
+			key = 0xa7; //KEY_RECORD
 			break;
 		case 0x48:
-			key = 0xa8;
+			key = 0xa8; //KEY_REWIND
 			break;
 		case 0x49:
-			key = 0xd0;
+		case 0x4B:
+			key = 0xd0; //KEY_FASTFORWARD
+			break;
+		case 0x4C:
+			key = 0xa8; //KEY_REWIND
 			break;
 		case 0x4B:
 			key = 0xd0;
@@ -330,55 +353,52 @@ long eHdmiCEC::translateKey(unsigned char code)
 			key = 0xa8;
 			break;
 		case 0x53:
-			key = 0x166;
+			key = 0x166; //KEY_INFO
 			break;
 		case 0x54:
-			key = 0x16a;
-			break;
-		case 0x60:
-			key = 0xcf;
+			key = 0x16a; //KEY_PROGRAM
 			break;
 		case 0x61:
-			key = 0xa4;
+			key = 0xa4; //KEY_PLAYPAUSE
 			break;
 		case 0x62:
-			key = 0xa7;
+			key = 0xa7; //KEY_RECORD
 			break;
 		case 0x64:
-			key = 0x80;
+			key = 0x80; //KEY_STOP
 			break;
 		case 0x00:
-			key = 0x160;
+			key = 0x160; //KEY_OK
 			break;
 		case 0x03:
-			key = 0x69;
+			key = 0x69; //KEY_LEFT
 			break;
 		case 0x04:
-			key = 0x6a;
+			key = 0x6a; //KEY_RIGHT
 			break;
 		case 0x01:
-			key = 0x67;
+			key = 0x67; //KEY_UP
 			break;
 		case 0x02:
-			key = 0x6c;
+			key = 0x6c; //KEY_DOWN
 			break;
 		case 0x0d:
-			key = 0x66;
+			key = 0xae; //KEY_EXIT
 			break;
 		case 0x72:
-			key = 0x18e;
+			key = 0x18e; //KEY_RED
 			break;
 		case 0x71:
-			key = 0x191;
+			key = 0x191; //KEY_BLUE
 			break;
 		case 0x73:
-			key = 0x18f;
+			key = 0x18f; //KEY_GREEN
 			break;
 		case 0x74:
-			key = 0x190;
+			key = 0x190; //KEY_YELLOW
 			break;
 		default:
-			key = 0x8b;
+			eDebug("eHdmiCEC: unknown code 0x%02X", (unsigned int)(code & 0xFF));
 			break;
 	}
 	return key;
@@ -388,12 +408,12 @@ void eHdmiCEC::sendMessage(struct cec_message &message)
 {
 	if (hdmiFd >= 0)
 	{
-		eDebugNoNewLine("eHdmiCEC: send message");
+		eDebugNoNewLineStart("[eHdmiCEC] send message");
 		for (int i = 0; i < message.length; i++)
 		{
 			eDebugNoNewLine(" %02X", message.data[i]);
 		}
-		eDebug(" -> %02X ", message.address);
+		eDebugNoNewLine(" -> %02X\n", message.address);
 #ifdef DREAMBOX
 		message.flag = 1;
 		::ioctl(hdmiFd, 3, &message);

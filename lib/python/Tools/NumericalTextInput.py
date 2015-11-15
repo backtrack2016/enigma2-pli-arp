@@ -29,7 +29,7 @@ MAP_SEARCH_UPCASE = (
 	)
 MAP_DEFAULT = (
 	u"0,?!&@=*'+\"()$~%",
-	u" 1.:;/-_",
+	u" 1.:;/-_#",
 	u"abc2ABC",
 	u"def3DEF",
 	u"ghi4GHI",
@@ -41,7 +41,7 @@ MAP_DEFAULT = (
 	)
 MAP_DE = (
 	u"0,?!&@=*'+\"()$~%",
-	u" 1.:;/-_",
+	u" 1.:;/-_#",
 	u"abcä2ABCÄ",
 	u"def3DEF",
 	u"ghi4GHI",
@@ -53,7 +53,7 @@ MAP_DE = (
 	)
 MAP_ES = (
 	u"0,?!&@=*'+\"()$~%",
-	u" 1.:;/-_",
+	u" 1.:;/-_#",
 	u"abcáà2ABCÁÀ",
 	u"deéèf3DEFÉÈ",
 	u"ghiíì4GHIÍÌ",
@@ -65,7 +65,7 @@ MAP_ES = (
 	)
 MAP_SE = (
 	u"0,?!&@=*'+\"()$~%",
-	u" 1.:;/-_",
+	u" 1.:;/-_#",
 	u"abcåä2ABCÅÄ",
 	u"defé3DEFÉ",
 	u"ghi4GHI",
@@ -77,7 +77,19 @@ MAP_SE = (
 	)
 MAP_CZ = (
 	u"0,?'+\"()@$!=&*%",
-	u" 1.:;/-_",
+	u" 1.:;/-_#",
+	u"abc2áčABCÁČ",
+	u"def3ďéěDEFĎÉĚ",
+	u"ghi4íGHIÍ",
+	u"jkl5JKL",
+	u"mno6ňóMNOŇÓ",
+	u"pqrs7řšPQRSŘŠ",
+	u"tuv8ťúůTUVŤÚŮ",
+	u"wxyz9ýžWXYZÝŽ",
+	)
+MAP_SK = (
+	u"0,?'+\"()@$!=&*%",
+	u" 1.:;/-_#",
 	u"abc2áäčABCÁÄČ",
 	u"def3ďéěDEFĎÉĚ",
 	u"ghi4íGHIÍ",
@@ -89,7 +101,7 @@ MAP_CZ = (
 	)
 MAP_PL = (
 	u"0,?'+\"()@$!=&*%",
-	u" 1.:;/-_",
+	u" 1.:;/-_#",
 	u"abcąć2ABCĄĆ",
 	u"defę3DEFĘ",
 	u"ghi4GHI",
@@ -101,7 +113,7 @@ MAP_PL = (
 	)
 MAP_RU = (
 	u"0,?'+\"()@$!=&*%",
-	u" 1.:;/-_",
+	u" 1.:;/-_#",
 	u"abcабвг2ABCАБВГ",
 	u"defдежз3DEFДЕЖЗ",
 	u"ghiийкл4GHIИЙКЛ",
@@ -111,15 +123,28 @@ MAP_RU = (
 	u"tuvшщьы8TUVШЩЬЫ",
 	u"wxyzъэюя9WXYZЪЭЮЯ",
 	)
+MAP_LV = (
+	u"0,?!&@=*'+\"()$~%",
+	u" 1.:;/-_#",
+	u"aābcč2AĀBCČ",
+	u"deēf3DEĒF",
+	u"gģhiī4GĢHIĪ",
+	u"jkķlļ5JKĶLĻ",
+	u"mnņo6MNŅO",
+	u"pqrsš7PQRSŠ",
+	u"tuūv8TUŪV",
+	u"wxyzž9WXYZŽ",
+	)
 MAPPINGS = {
 	'de_DE': MAP_DE,
 	'es_ES': MAP_ES,
 	'sv_SE': MAP_SE,
 	'fi_FI': MAP_SE,
 	'cs_CZ': MAP_CZ,
-	'sk_SK': MAP_CZ,
+	'sk_SK': MAP_SK,
 	'pl_PL': MAP_PL,
 	'ru_RU': MAP_RU,
+	'lv_LV': MAP_LV,
 	}
 
 class NumericalTextInput:

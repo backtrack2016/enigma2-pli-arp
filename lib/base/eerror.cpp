@@ -6,7 +6,8 @@
 #include <cstdlib>
 #include <cstring>
 #include <unistd.h>
-#include <syslog.h>
+#include <time.h>
+#include <stdio.h>
 
 #include <string>
 
@@ -77,7 +78,21 @@ void DumpUnfreed()
 #endif
 
 Signal2<void, int, const std::string&> logOutput;
-int logOutputConsole=1;
+int logOutputConsole = 1;
+
+void CheckPrintkLevel()
+{
+	FILE *f = fopen("/proc/sys/kernel/printk", "r");
+	if (f)
+	{
+		fscanf(f, "%u", &logOutputConsole);
+		if (logOutputConsole < 1)
+		{
+			printf("Printk level is %u, disble Enigma log!\n", logOutputConsole);
+		}
+		fclose(f);
+	}
+}
 
 static pthread_mutex_t DebugLock =
 	PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP;
@@ -87,16 +102,18 @@ extern void bsodFatal(const char *component);
 void eFatal(const char* fmt, ...)
 {
 	char buf[1024];
+	struct timespec tp;
+	clock_gettime(CLOCK_MONOTONIC, &tp);
+	snprintf(buf, 1024, "<%6lu.%06lu> FATAL: ", tp.tv_sec, tp.tv_nsec/1000);
 	va_list ap;
 	va_start(ap, fmt);
-	vsnprintf(buf, 1024, fmt, ap);
+	vsnprintf(buf + strlen(buf), 1024-strlen(buf), fmt, ap);
 	va_end(ap);
+
 	{
 		singleLock s(DebugLock);
-		logOutput(lvlFatal, "FATAL: " + std::string(buf) + "\n");
-		openlog("enigma2", 0, LOG_USER);
-		syslog(LOG_CRIT, "FATAL: %s\n",buf);
-		closelog();
+		logOutput(lvlFatal, std::string(buf) + "\n");
+		fprintf(stderr, "%s\n", buf);
 	}
 	bsodFatal("enigma2");
 }
@@ -107,7 +124,17 @@ void eDebug(const char* fmt, ...)
 	char buf[1024];
 	va_list ap;
 	va_start(ap, fmt);
-	vsnprintf(buf, 1024, fmt, ap);
+	if (logOutputConsole > 1)
+	{
+		struct timespec tp;
+		clock_gettime(CLOCK_MONOTONIC, &tp);
+		snprintf(buf, 1024, "<%6lu.%06lu> ", tp.tv_sec, tp.tv_nsec/1000);
+		vsnprintf(buf + strlen(buf), 1024-strlen(buf), fmt, ap);
+	}
+	else
+	{
+		vsnprintf(buf, 1024, fmt, ap);
+	}
 	va_end(ap);
 	singleLock s(DebugLock);
 	logOutput(lvlDebug, std::string(buf) + "\n");
@@ -119,6 +146,29 @@ void eDebug(const char* fmt, ...)
 	}
 }
 
+void eDebugNoNewLineStart(const char* fmt, ...)
+{
+	char buf[1024];
+	va_list ap;
+	va_start(ap, fmt);
+	if (logOutputConsole > 1)
+	{
+		struct timespec tp;
+		clock_gettime(CLOCK_MONOTONIC, &tp);
+		snprintf(buf, 1024, "<%6lu.%06lu> ", tp.tv_sec, tp.tv_nsec/1000);
+		vsnprintf(buf + strlen(buf), 1024-strlen(buf), fmt, ap);
+	}
+	else
+	{
+		vsnprintf(buf, 1024, fmt, ap);
+	}
+	va_end(ap);
+	singleLock s(DebugLock);
+	logOutput(lvlDebug, std::string(buf));
+	if (logOutputConsole)
+		fprintf(stderr, "%s", buf);
+}
+
 void eDebugNoNewLine(const char* fmt, ...)
 {
 	char buf[1024];
@@ -127,7 +177,7 @@ void eDebugNoNewLine(const char* fmt, ...)
 	vsnprintf(buf, 1024, fmt, ap);
 	va_end(ap);
 	singleLock s(DebugLock);
-	logOutput(lvlDebug, buf);
+	logOutput(lvlDebug, std::string(buf));
 	if (logOutputConsole)
 	{
 	    openlog("enigma2", 0, LOG_USER);
@@ -142,7 +192,17 @@ void eWarning(const char* fmt, ...)
 	char buf[1024];
 	va_list ap;
 	va_start(ap, fmt);
-	vsnprintf(buf, 1024, fmt, ap);
+	if (logOutputConsole > 1)
+	{
+		struct timespec tp;
+		clock_gettime(CLOCK_MONOTONIC, &tp);
+		snprintf(buf, 1024, "<%6lu.%06lu> ", tp.tv_sec, tp.tv_nsec/1000);
+		vsnprintf(buf + strlen(buf), 1024-strlen(buf), fmt, ap);
+	}
+	else
+	{
+		vsnprintf(buf, 1024, fmt, ap);
+	}
 	va_end(ap);
 	singleLock s(DebugLock);
 	logOutput(lvlWarning, std::string(buf) + "\n");

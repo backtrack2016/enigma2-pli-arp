@@ -12,12 +12,18 @@
 #endif
 #include <lib/gdi/glcddc.h>
 
-eDBoxLCD *eDBoxLCD::instance;
+eLCD *eLCD::instance;
 
 eLCD::eLCD()
 {
 	lcdfd = -1;
 	locked=0;
+	instance = this;
+}
+
+eLCD *eLCD::getInstance()
+{
+	return instance;
 }
 
 void eLCD::setSize(int xres, int yres, int bpp)
@@ -26,12 +32,13 @@ void eLCD::setSize(int xres, int yres, int bpp)
 	_buffer=new unsigned char[xres * yres * bpp/8];
 	memset(_buffer, 0, res.height()*res.width()*bpp/8);
 	_stride=res.width()*bpp/8;
-	eDebug("lcd buffer %p %d bytes, stride %d", _buffer, xres*yres*bpp/8, _stride);
+	eDebug("[eLCD] (%dx%dx%d) buffer %p %d bytes, stride %d", xres, yres, bpp, _buffer, xres*yres*bpp/8, _stride);
 }
 
 eLCD::~eLCD()
 {
-	delete [] _buffer;
+	if (_buffer)
+		delete [] _buffer;
 }
 
 int eLCD::lock()
@@ -48,6 +55,7 @@ void eLCD::unlock()
 	locked=0;
 }
 
+#ifndef NO_LCD
 #ifdef HAVE_TEXTLCD
 void eLCD::renderText(ePoint start, const char *text)
 {
@@ -59,38 +67,44 @@ void eLCD::renderText(ePoint start, const char *text)
 	}
 }
 #endif
+#else
+void eLCD::renderText(const char *text)
+{
+	//eDebug("[LCD] text: %s", text);
+	vfd->vfd_write_string(text, true);
+}
+#endif
 
 #ifndef HAVE_GRAPHLCD
 eDBoxLCD::eDBoxLCD()
 {
-	int xres=132, yres=64, bpp=8;
+	int xres=32, yres=32, bpp=8;
 	flipped = false;
 	inverted = 0;
-	is_oled = 0;
+	lcd_type = 0;
 #ifndef NO_LCD
 	lcdfd = open("/dev/dbox/oled0", O_RDWR);
 	if (lcdfd < 0)
 	{
 		if (!access("/proc/stb/lcd/oled_brightness", W_OK) ||
 		    !access("/proc/stb/fp/oled_brightness", W_OK) )
-			is_oled = 2;
+			lcd_type = 2;
 		lcdfd = open("/dev/dbox/lcd0", O_RDWR);
 	} else
 	{
-		eDebug("found OLED display!");
-		is_oled = 1;
+		lcd_type = 1;
 	}
 
 	if (lcdfd < 0)
-		eDebug("couldn't open LCD - load lcd.ko!");
+		eDebug("[eDboxLCD] No oled0 or lcd0 device found!");
 	else
 	{
 
 #ifndef LCD_IOCTL_ASC_MODE
 #define LCDSET                  0x1000
-#define LCD_IOCTL_ASC_MODE		(21|LCDSET)
-#define	LCD_MODE_ASC			0
-#define	LCD_MODE_BIN			1
+#define LCD_IOCTL_ASC_MODE	(21|LCDSET)
+#define	LCD_MODE_ASC		0
+#define	LCD_MODE_BIN		1
 #endif
 
 		int i=LCD_MODE_BIN;
@@ -116,18 +130,22 @@ eDBoxLCD::eDBoxLCD()
 					fclose(f);
 				}
 			}
-			is_oled = 3;
+			lcd_type = 3;
 		}
+		eDebug("[eDboxLCD] xres=%d, yres=%d, bpp=%d lcd_type=%d", xres, yres, bpp, lcd_type);
 	}
 #endif
-	instance=this;
+	instance = this;
 
 	setSize(xres, yres, bpp);
+#ifdef NO_LCD
+	vfd = new evfd;
+#endif
 }
 
 void eDBoxLCD::setInverted(unsigned char inv)
 {
-	inverted=inv;
+	inverted = inv;
 	update();
 }
 
@@ -145,18 +163,17 @@ int eDBoxLCD::setLCDContrast(int contrast)
 #define LCDSET                  0x1000
 #define	LCD_IOCTL_SRV			(10|LCDSET)
 #endif
+	eDebug("[eDboxLCD] setLCDContrast %d", contrast);
 
 	int fp;
 	if((fp=open("/dev/dbox/fp0", O_RDWR))<0)
 	{
-		eDebug("[LCD] can't open /dev/dbox/fp0");
+		eDebug("[eDboxLCD] can't open /dev/dbox/fp0: %m");
 		return(-1);
 	}
 
 	if(ioctl(lcdfd, LCD_IOCTL_SRV, &contrast)<0)
-	{
-		eDebug("[LCD] can't set lcd contrast");
-	}
+		eDebug("[eDboxLCD] can't set lcd contrast: %m");
 	close(fp);
 #endif
 	return(0);
@@ -165,14 +182,14 @@ int eDBoxLCD::setLCDContrast(int contrast)
 int eDBoxLCD::setLCDBrightness(int brightness)
 {
 #ifndef NO_LCD
-	eDebug("setLCDBrightness %d", brightness);
+	eDebug("[eDboxLCD] setLCDBrightness %d", brightness);
 	FILE *f=fopen("/proc/stb/lcd/oled_brightness", "w");
 	if (!f)
 		f = fopen("/proc/stb/fp/oled_brightness", "w");
 	if (f)
 	{
 		if (fprintf(f, "%d", brightness) == 0)
-			eDebug("write /proc/stb/lcd/oled_brightness failed!! (%m)");
+			eDebug("[eDboxLCD] write /proc/stb/lcd/oled_brightness failed: %m");
 		fclose(f);
 	}
 	else
@@ -180,14 +197,14 @@ int eDBoxLCD::setLCDBrightness(int brightness)
 		int fp;
 		if((fp=open("/dev/dbox/fp0", O_RDWR)) < 0)
 		{
-			eDebug("[LCD] can't open /dev/dbox/fp0");
+			eDebug("[eDboxLCD] can't open /dev/dbox/fp0: %m");
 			return(-1);
 		}
 #ifndef FP_IOCTL_LCD_DIMM
 #define FP_IOCTL_LCD_DIMM       3
 #endif
 		if(ioctl(fp, FP_IOCTL_LCD_DIMM, &brightness) < 0)
-			eDebug("[LCD] can't set lcd brightness (%m)");
+			eDebug("[eDboxLCD] can't set lcd brightness: %m");
 		close(fp);
 	}
 #endif
@@ -196,110 +213,111 @@ int eDBoxLCD::setLCDBrightness(int brightness)
 
 eDBoxLCD::~eDBoxLCD()
 {
+#ifndef NO_LCD
 	if (lcdfd>=0)
 	{
 		close(lcdfd);
 		lcdfd=-1;
 	}
-}
-
-eDBoxLCD *eDBoxLCD::getInstance()
-{
-	return instance;
+#else
+	delete vfd;
+#endif
 }
 
 void eDBoxLCD::update()
 {
+#ifndef NO_LCD
 #ifndef HAVE_TEXTLCD
-	if (lcdfd >= 0)
+	if (lcdfd < 0)
+		return;
+
+	if (lcd_type == 0 || lcd_type == 2)
 	{
-		if (is_oled == 0 || is_oled == 2)
+		unsigned char raw[132*8];
+		int x, y, yy;
+		for (y=0; y<8; y++)
 		{
-			unsigned char raw[132*8];
-			int x, y, yy;
-			for (y=0; y<8; y++)
-			{
-				for (x=0; x<132; x++)
-				{
-					int pix=0;
-					for (yy=0; yy<8; yy++)
-					{
-						pix|=(_buffer[(y*8+yy)*132+x]>=108)<<yy;
-					}
-					if (flipped)
-					{
-						/* 8 pixels per byte, swap bits */
-#define BIT_SWAP(a) (( ((a << 7)&0x80) + ((a << 5)&0x40) + ((a << 3)&0x20) + ((a << 1)&0x10) + ((a >> 1)&0x08) + ((a >> 3)&0x04) + ((a >> 5)&0x02) + ((a >> 7)&0x01) )&0xff)
-						raw[(7 - y) * 132 + (131 - x)] = BIT_SWAP(pix ^ inverted);
-					}
-					else
-					{
-						raw[y * 132 + x] = pix ^ inverted;
-					}
-				}
-			}
-			write(lcdfd, raw, 132*8);
-		}
-		else if (is_oled == 3)
-		{
-			/* for now, only support flipping / inverting for 8bpp displays */
-			if ((flipped || inverted) && _stride == res.width())
-			{
-				unsigned int height = res.height();
-				unsigned int width = res.width();
-				unsigned char raw[_stride * height];
-				for (unsigned int y = 0; y < height; y++)
-				{
-					for (unsigned int x = 0; x < width; x++)
-					{
-						if (flipped)
-						{
-							/* 8bpp, no bit swapping */
-							raw[(height - 1 - y) * width + (width - 1 - x)] = _buffer[y * width + x] ^ inverted;
-						}
-						else
-						{
-							raw[y * width + x] = _buffer[y * width + x] ^ inverted;
-						}
-					}
-				}
-				write(lcdfd, raw, _stride * height);
-			}
-			else
-			{
-				write(lcdfd, _buffer, _stride * res.height());
-			}
-		}
-		else /* is_oled == 1 */
-		{
-			unsigned char raw[64*64];
-			int x, y;
-			memset(raw, 0, 64*64);
-			for (y=0; y<64; y++)
+			for (x=0; x<132; x++)
 			{
 				int pix=0;
-				for (x=0; x<128 / 2; x++)
+				for (yy=0; yy<8; yy++)
 				{
-					pix = (_buffer[y*132 + x * 2 + 2] & 0xF0) |(_buffer[y*132 + x * 2 + 1 + 2] >> 4);
-					if (inverted)
-						pix = 0xFF - pix;
+					pix|=(_buffer[(y*8+yy)*132+x]>=108)<<yy;
+				}
+				if (flipped)
+				{
+					/* 8 pixels per byte, swap bits */
+#define BIT_SWAP(a) (( ((a << 7)&0x80) + ((a << 5)&0x40) + ((a << 3)&0x20) + ((a << 1)&0x10) + ((a >> 1)&0x08) + ((a >> 3)&0x04) + ((a >> 5)&0x02) + ((a >> 7)&0x01) )&0xff)
+					raw[(7 - y) * 132 + (131 - x)] = BIT_SWAP(pix ^ inverted);
+				}
+				else
+				{
+					raw[y * 132 + x] = pix ^ inverted;
+				}
+			}
+		}
+		write(lcdfd, raw, 132*8);
+	}
+	else if (lcd_type == 3)
+	{
+		/* for now, only support flipping / inverting for 8bpp displays */
+		if ((flipped || inverted) && _stride == res.width())
+		{
+			unsigned int height = res.height();
+			unsigned int width = res.width();
+			unsigned char raw[_stride * height];
+			for (unsigned int y = 0; y < height; y++)
+			{
+				for (unsigned int x = 0; x < width; x++)
+				{
 					if (flipped)
 					{
-						/* device seems to be 4bpp, swap nibbles */
-						unsigned char byte;
-						byte = (pix >> 4) & 0x0f;
-						byte |= (pix << 4) & 0xf0;
-						raw[(63 - y) * 64 + (63 - x)] = byte;
+						/* 8bpp, no bit swapping */
+						raw[(height - 1 - y) * width + (width - 1 - x)] = _buffer[y * width + x] ^ inverted;
 					}
 					else
 					{
-						raw[y * 64 + x] = pix;
+						raw[y * width + x] = _buffer[y * width + x] ^ inverted;
 					}
 				}
 			}
-			write(lcdfd, raw, 64*64);
+			write(lcdfd, raw, _stride * height);
+		}
+		else
+		{
+			write(lcdfd, _buffer, _stride * res.height());
 		}
 	}
+	else /* lcd_type == 1 */
+	{
+		unsigned char raw[64*64];
+		int x, y;
+		memset(raw, 0, 64*64);
+		for (y=0; y<64; y++)
+		{
+			int pix=0;
+			for (x=0; x<128 / 2; x++)
+			{
+				pix = (_buffer[y*132 + x * 2 + 2] & 0xF0) |(_buffer[y*132 + x * 2 + 1 + 2] >> 4);
+				if (inverted)
+					pix = 0xFF - pix;
+				if (flipped)
+				{
+					/* device seems to be 4bpp, swap nibbles */
+					unsigned char byte;
+					byte = (pix >> 4) & 0x0f;
+					byte |= (pix << 4) & 0xf0;
+					raw[(63 - y) * 64 + (63 - x)] = byte;
+				}
+				else
+				{
+					raw[y * 64 + x] = pix;
+				}
+			}
+		}
+		write(lcdfd, raw, 64*64);
+	}
+#endif
 #endif
 }
 
@@ -457,14 +475,14 @@ void eDBoxLCD::update()
 		for (int x = 0; x < width; x++)
 			for (int y = 0; y < height; y++)
 			{
-				__u16 *buf16  = (__u16*) _buffer;
+				uint16_t *buf16  = (uint16_t*) _buffer;
 #if BYTE_ORDER == LITTLE_ENDIAN
-				__u16 col16 = bswap_16(*((__u16*)(((__u16*)buf16) + y * width + x)));
+				uint16_t col16 = bswap_16(*((uint16_t*)(((uint16_t*)buf16) + y * width + x)));
 #else
-				__u16 col16 = *((__u16*)(((__u16*)buf16) + y * width + x));
+				uint16_t col16 = *((uint16_t*)(((uint16_t*)buf16) + y * width + x));
 #endif
-				__u8 red, green, blue, alpha; 
-				__u32 color32;
+				uint8_t red, green, blue, alpha; 
+				uint32_t color32;
 
 				/* BBBBB GGGGGG RRRRR */
 				blue  = ((col16 & 0xF800) >> 11) * ( 255 / 31);
