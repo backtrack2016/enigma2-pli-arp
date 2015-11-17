@@ -35,10 +35,10 @@
 struct DescriptorPair
 {
 	int reference_count;
-	__u8* data;
+	uint8_t* data;
 
 	DescriptorPair() {}
-	DescriptorPair(int c, __u8* d): reference_count(c), data(d) {}
+	DescriptorPair(int c, uint8_t* d): reference_count(c), data(d) {}
 };
 
 typedef std::tr1::unordered_map<uint32_t, DescriptorPair> DescriptorMap;
@@ -4139,7 +4139,7 @@ void eEPGCache::channel_data::readMHWData(const uint8_t *data)
 			((summary->program_id_ml)<<8)|(summary->program_id_lo);
 		int len = ((data[1]&0xf)<<8) + data[2];
 
-		// ugly workaround to convert const __u8* to char*
+		// ugly workaround to convert const uint8_t* to char*
 		char *tmp=0;
 		memcpy(&tmp, &data, sizeof(void*));
 		tmp[len+3] = 0;	// Terminate as a string.
@@ -4412,7 +4412,7 @@ void eEPGCache::channel_data::readMHWData2(const uint8_t *data)
 //				eDebug ("[eEPGCache] summary id %04x\n", summary_id);
 //				eDebug("[eEPGCache] [%02x %02x] %02x %02x %02x %02x %02x %02x %02x %02x XX\n", data[3], data[4], data[5], data[6], data[7], data[8], data[9], data[10], data[11], data[12], data[13] );
 
-				// ugly workaround to convert const __u8* to char*
+				// ugly workaround to convert const uint8_t* to char*
 				char *tmp=0;
 				memcpy(&tmp, &data, sizeof(void*));
 
