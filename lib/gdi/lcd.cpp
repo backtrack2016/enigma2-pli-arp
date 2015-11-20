@@ -55,7 +55,7 @@ void eLCD::unlock()
 	locked=0;
 }
 
-#ifndef NO_LCD
+//#ifndef NO_LCD
 #ifdef HAVE_TEXTLCD
 void eLCD::renderText(ePoint start, const char *text)
 {
@@ -67,18 +67,18 @@ void eLCD::renderText(ePoint start, const char *text)
 	}
 }
 #endif
-#else
+/*#else
 void eLCD::renderText(const char *text)
 {
 	//eDebug("[LCD] text: %s", text);
 	vfd->vfd_write_string(text, true);
 }
-#endif
+#endif*/
 
 #ifndef HAVE_GRAPHLCD
 eDBoxLCD::eDBoxLCD()
 {
-	int xres=32, yres=32, bpp=8;
+	int xres=132, yres=64, bpp=8;
 	flipped = false;
 	inverted = 0;
 	lcd_type = 0;
@@ -138,9 +138,9 @@ eDBoxLCD::eDBoxLCD()
 	instance = this;
 
 	setSize(xres, yres, bpp);
-#ifdef NO_LCD
+/*#ifdef NO_LCD
 	vfd = new evfd;
-#endif
+#endif*/
 }
 
 void eDBoxLCD::setInverted(unsigned char inv)
@@ -213,20 +213,20 @@ int eDBoxLCD::setLCDBrightness(int brightness)
 
 eDBoxLCD::~eDBoxLCD()
 {
-#ifndef NO_LCD
+//#ifndef NO_LCD
 	if (lcdfd>=0)
 	{
 		close(lcdfd);
 		lcdfd=-1;
 	}
-#else
+/*#else
 	delete vfd;
-#endif
+#endif*/
 }
 
 void eDBoxLCD::update()
 {
-#ifndef NO_LCD
+//#ifndef NO_LCD
 #ifndef HAVE_TEXTLCD
 	if (lcdfd < 0)
 		return;
@@ -318,7 +318,7 @@ void eDBoxLCD::update()
 		write(lcdfd, raw, 64*64);
 	}
 #endif
-#endif
+//#endif
 }
 
 #else

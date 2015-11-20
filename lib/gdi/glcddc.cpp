@@ -1,8 +1,8 @@
 #include <lib/gdi/glcddc.h>
 #include <lib/gdi/lcd.h>
-#ifndef NO_LCD
+//#ifndef NO_LCD
 #include <lib/gdi/fblcd.h>
-#endif
+//#endif
 #include <lib/base/init.h>
 #include <lib/base/init_num.h>
 
@@ -25,16 +25,16 @@ static inline int time_after(struct timespec oldtime, uint32_t delta_ms)
 
 gLCDDC::gLCDDC()
 {
-#ifndef NO_LCD
+//#ifndef NO_LCD
 	lcd = new eFbLCD();
 	if (!lcd->detected())
 	{
 		delete lcd;
 		lcd = new eDBoxLCD();
 	}
-#else
+/*#else
 	lcd = new eDBoxLCD();
-#endif
+#endif*/
 	instance = this;
 
 	update = 1;
@@ -81,7 +81,7 @@ void gLCDDC::exec(const gOpcode *o)
 {
 	switch (o->opcode)
 	{
-#ifndef NO_LCD
+//#ifndef NO_LCD
 	case gOpcode::setPalette:
 	{
 		gDC::exec(o);
@@ -98,7 +98,7 @@ void gLCDDC::exec(const gOpcode *o)
 		delete o->parm.renderText;
 		break;
 #endif
-#else
+/*#else
 	case gOpcode::renderText:
 		if (o->parm.renderText->text)
 		{
@@ -107,7 +107,7 @@ void gLCDDC::exec(const gOpcode *o)
 		}
 		delete o->parm.renderText;
 		break;
-#endif
+#endif*/
 	case gOpcode::flush:
 #ifdef HAVE_GRAPHLCD
 		if (update)
