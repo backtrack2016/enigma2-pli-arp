@@ -200,8 +200,9 @@ def InitUsageConfig():
 		("5", "DVB-T/-S/-C"),
 		("127", _("No priority")) ])
 
-	config.usage.remote_fallback_enabled = ConfigYesNo(default = False);
-	config.usage.remote_fallback = ConfigText(default = "", fixed_size = False);
+	config.usage.remote_fallback_enabled = ConfigYesNo(default = False)
+	config.usage.remote_fallback = ConfigText(default = "", fixed_size = False)
+	config.usage.show_timer_conflict_warning = ConfigYesNo(default = True)
 
 	dvbs_nims = [("-2", _("Disabled"))]
 	dvbt_nims = [("-2", _("Disabled"))]
@@ -360,6 +361,7 @@ def InitUsageConfig():
 		config.usage.output_12V.addNotifier(set12VOutput, immediate_feedback=False)
 
 	config.usage.keymap = ConfigText(default = eEnv.resolve("${datadir}/enigma2/keymap.xml"))
+	config.usage.keytrans = ConfigText(default = eEnv.resolve("${datadir}/enigma2/keytranslation.xml"))
 
 	config.seek = ConfigSubsection()
 	config.seek.selfdefined_13 = ConfigNumber(default=15)

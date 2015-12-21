@@ -3,7 +3,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: enigma2\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2015-11-14 18:55+0200\n"
+"POT-Creation-Date: 2015-12-12 16:11+0200\n"
 "PO-Revision-Date: 2014-11-12 00:49+0200\n"
 "Last-Translator: Tapat <taapat@gmail.com>\n"
 "Language-Team: Taapat <taapat@gmail.com>\n"
@@ -1207,11 +1207,11 @@ msgstr "Kanāls"
 msgid "Channel Info"
 msgstr "Info par kanālu"
 
-msgid "Channel in not in services list"
-msgstr "Kanāls nav kanālu sarakstā"
-
 msgid "Channel list type"
 msgstr "Kanālu saraksta veids"
+
+msgid "Channel not in services list"
+msgstr "Kanāls nav kanālu sarakstā"
 
 msgid "Channel selection"
 msgstr "Kanālu izvēle"
@@ -1260,6 +1260,9 @@ msgstr "Bērni/Jaunieši"
 msgid "Choose Tuner"
 msgstr "Izvēlieties uztvērēju"
 
+msgid "Choose bouquet"
+msgstr "Izvēlieties buķeti"
+
 msgid "Choose which tuner to configure."
 msgstr "Izvēlieties kuru uztvērēju konfigurēt"
 
@@ -1279,16 +1282,16 @@ msgid "Clear"
 msgstr "Iztīrīt"
 
 msgid "Clear before scan"
-msgstr "Notīrīt pirms meklēšanas"
+msgstr "Dzēst pirms meklēšanas"
 
 msgid "Clear fixed"
-msgstr "Notīrīšana fiksēta"
+msgstr "Dzēst fiksēto"
 
 msgid "Clear log"
 msgstr "Dzēst žurnālu"
 
 msgid "Clear playlist"
-msgstr "Notīrīt repertuāru"
+msgstr "Dzēst repertuāru"
 
 msgid "Clone TV screen to LCD"
 msgstr "Kopēt TV ekrānu uz LCD"
@@ -1833,6 +1836,9 @@ msgstr "Kursora darbība atverot kanālu srakstu"
 msgid "Cut"
 msgstr "Griezt"
 
+msgid "Cutlist editor"
+msgstr "Griešanas redaktors"
+
 msgid "Cutlist editor..."
 msgstr "Griešanas redaktors..."
 
@@ -1884,6 +1890,9 @@ msgstr "DVB-T2"
 msgid "DVD"
 msgstr "DVD"
 
+msgid "DVD Burn"
+msgstr "DVD ieraksts"
+
 msgid "DVD data format"
 msgstr "DVD datu formāts"
 
@@ -1913,6 +1922,9 @@ msgstr "Izslēgt"
 
 msgid "Default"
 msgstr "Noklusētais"
+
+msgid "Default Services Scanner"
+msgstr "Kanālu meklētājs pēc noklusējuma"
 
 msgid "Default movie location"
 msgstr "Filmu atrašanās vieta pēc noklusējuma"
@@ -2648,6 +2660,12 @@ msgstr "FEC LP"
 msgid "FEC:"
 msgstr "FEC:"
 
+msgid "FP Upgrade"
+msgstr "FP atjaunošana"
+
+msgid "FP upgrade required"
+msgstr "Nepieciešams atjaunot FP"
+
 msgid "FTA"
 msgstr "FTA"
 
@@ -2920,8 +2938,8 @@ msgstr "Guard intervāls"
 msgid "HD list"
 msgstr "HD saraksts"
 
-msgid "HD1100/et7x00/et8500"
-msgstr "HD1100/et7x00/et8500"
+msgid "HD1100/HD1200/et7x00/et8500"
+msgstr "HD1100/HD1200/et7x00/et8500"
 
 msgid "HD2400"
 msgstr "HD2400"
@@ -3747,6 +3765,9 @@ msgstr "NFI imidža paršūšana pabeigta. Spiediet dzelteno pogu, lai pārstart
 msgid "NIM"
 msgstr "NIM"
 
+msgid "NO"
+msgstr "NĒ"
+
 msgid "NOW"
 msgstr "PAŠREIZ"
 
@@ -3780,6 +3801,9 @@ msgstr "Tīkls"
 
 msgid "Network ID"
 msgstr "Tīkla ID"
+
+msgid "Network configuration"
+msgstr "Tīkla konfigurācija"
 
 msgid "Network configuration..."
 msgstr "Tīkla konfigurācija..."
@@ -5462,6 +5486,9 @@ msgstr "Izvēlieties video režīmu"
 msgid "Select wireless network"
 msgstr "Izvēlieties bezvadu tīklu"
 
+msgid "Select your Skin"
+msgstr "Izvēlieties noformējumu"
+
 msgid "Select your provider, and press OK to start the scan"
 msgstr "Izvēlieties jūsu operatoru un nospiediet OK lai sāktu meklēt"
 
@@ -5804,6 +5831,9 @@ msgstr "Parādīt pakates kuras atjaunos"
 
 msgid "Show vertical timelines"
 msgstr "Rādīt vertikālās līnijas laikam"
+
+msgid "Show warning before set 'Ignore conflict'"
+msgstr "Rādīt brīdinājumu pirms iestatīt 'Ignorēt konfliktus'"
 
 msgid "Show warning when timeshift is stopped"
 msgstr "Rādīt brīdinājumu kad laika aizture apturēta"
@@ -6368,6 +6398,12 @@ msgstr "Sinhronizēšana pārtraukta, atiestata uz oriģinālu!"
 msgid "System"
 msgstr "Sistēma"
 
+msgid "System Message"
+msgstr "Sistēmas paziņojums"
+
+msgid "System Message Check"
+msgstr "Pārbauda sistēmas paziņojumu"
+
 #. TRANSLATORS: Add here whatever should be shown in the "translator" about screen, up to 6 lines (use \n for newline)
 msgid "TRANSLATOR_INFO"
 msgstr "Taapat, Madars Auns Latvija, Talsi"
@@ -6841,8 +6877,15 @@ msgstr "Vertikāli"
 msgid "Top and bottom"
 msgstr "Vertikāli"
 
+#, python-format
+msgid "Total clients streaming: %d (%s)"
+msgstr "Straumē: %d (%s) klienti"
+
 msgid "Track"
 msgstr "Celiņš"
+
+msgid "Transcoding: "
+msgstr "Transkodē:"
 
 msgid "Translation"
 msgstr "Tulkojums"
@@ -7187,6 +7230,9 @@ msgstr "Vertikālās noskaņošanas ātrums"
 msgid "Video PID"
 msgstr "Video PID"
 
+msgid "Video clipping setup"
+msgstr "Video apgriešanas iestatījumi"
+
 msgid "Video enhancement preview"
 msgstr "Video uzlabošanas priekšskatījums"
 
@@ -7368,6 +7414,15 @@ msgstr "Pamodināšanas taimera iestatījumi"
 
 msgid "Warning"
 msgstr "Brīdinājums"
+
+msgid ""
+"Warning!\n"
+"This is an option for advanced users.\n"
+"Really disable timer conflict detection?"
+msgstr ""
+"Uzmanību!\n"
+"Šis iestatījums ir zinošiem lietotājiem.\n"
+"Vai tiešām atspējot taimeru konflikta noteikšanu?"
 
 msgid "Warning: no LNB; using factory defaults."
 msgstr "Uzmanību: nav LNB; lieto noklusētos iestatījumus"
@@ -7700,6 +7755,9 @@ msgstr "Rakstīšana neizdevās!"
 
 msgid "Write to /tmp/positionersetup.log"
 msgstr "Saglabā /tmp/positionersetup.log"
+
+msgid "YES"
+msgstr "JĀ"
 
 msgid "YPbPr"
 msgstr "YPbPr"
@@ -8049,6 +8107,9 @@ msgstr "vienmēr"
 msgid "and never ask again this session again"
 msgstr "un vairs neprasīt kamēr darbojos"
 
+msgid "and never ask this again"
+msgstr "un vairs to neprasīt"
+
 msgid "and never show this message again"
 msgstr "un vairs nerādīt šo paziņojumu"
 
@@ -8136,6 +8197,9 @@ msgstr "cirkulārā kreisā"
 
 msgid "circular right"
 msgstr "cirkulārā labā"
+
+msgid "clip overscan / letterbox borders"
+msgstr "apgriež attēla malas"
 
 msgid "comedy"
 msgstr "komēdija"

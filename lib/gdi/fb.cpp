@@ -67,8 +67,8 @@ fbClass::fbClass(const char *fb)
 
 	available=fix.smem_len;
 	m_phys_mem = fix.smem_start;
+	eDebug("[fb] %s: %dk video mem", fb, available/1024);
 #if defined(__sh__)
-	eDebug("[fb] %dk video mem", available/1024);
 	// The first 1920x1080x4 bytes are reserved
 	// After that we can take 1280x720x4 bytes for our virtual framebuffer
 	available -= 1920*1080*4;
@@ -95,7 +95,7 @@ nolfb:
 		::close(fbFd);
 		fbFd = -1;
 	}
-	eDebug("[fb] framebuffer not available");
+	eDebug("[fb] framebuffer %s not available", fb);
 	return;
 }
 
@@ -183,7 +183,7 @@ int fbClass::SetMode(int nxRes, int nyRes, int nbpp)
 	yResSc=screeninfo.yres;
 	stride=xRes*4;
 #else
-	if ((screeninfo.xres!=nxRes) && (screeninfo.yres!=nyRes) && (screeninfo.bits_per_pixel!=nbpp))
+	if ((screeninfo.xres!=nxRes) || (screeninfo.yres!=nyRes) || (screeninfo.bits_per_pixel!=nbpp))
 	{
 		eDebug("[fb] SetMode failed: wanted: %dx%dx%d, got %dx%dx%d",
 			nxRes, nyRes, nbpp,
