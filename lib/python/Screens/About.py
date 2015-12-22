@@ -168,12 +168,12 @@ class CommitInfo(Screen):
 
 		self.project = 0
 		self.projects = [
-			("enigma2-pli-arp-taapat", "Taapat Enigma2"),
-			("tdt-arp-taapat", "Taapat tdt-arp"),
-			("taapat-enigma2-plugins-sh4", "Taapat Enigma2 plugins sh4"),
+			("openarp-enigma2-pli-arp", "OpenAR-Project Enigma2"),
+			("openarp-arp-bs", "OpenAR-Project arp-bs"),
+			("openarp-enigma2-plugins-sh4", "Enigma2 sh4 plugins"),
 			("taapat-skin-MetropolisHD", "skin-MetropolisHD"),
-			("ar-p-e2openplugin-OpenWebif", "AR-P plugin-OpenWebif"),
-			("aio-grab", "Aio Grab"),
+			("openarp-e2openplugin-OpenWebif", "AR-P plugin-OpenWebif"),
+			("openarp-driver", "OpenAR-P Driver Sources "),
 			("enigma2-plugin-skins-magic", "Skin Magic"),
 			("tuxtxt", "Tuxtxt"),
 			("enigma2", "Openpli Enigma2")
@@ -206,8 +206,8 @@ class CommitInfo(Screen):
 		else:
 			if "taapat-" in feed:
 				url = 'https://api.github.com/repos/taapat/%s/commits' % feed[7:]
-			elif "ar-p-" in feed:
-				url = 'https://api.github.com/repos/openar-p/%s/commits' % feed[5:]
+			elif "openarp-" in feed:
+				url = 'https://api.github.com/repos/openar-p/%s/commits' % feed[8:]
 			else:
 				url = 'https://api.github.com/repos/openpli/%s/commits' % feed
 			try:
