@@ -65,6 +65,16 @@ if test "$enable_minimal" = "yes"; then
 fi
 AM_CONDITIONAL(ENABLE_MINIMAL, test "$enable_minimal" = "yes")
 
+AC_ARG_ENABLE(sigc2,
+	[  --enable-sigc2         enable sigc2 config],
+	[AC_DEFINE(ENABLE_SIGC2, 1, [enable sigc2 config])])
+
+if ! test "$enable_sigc2" = "yes"; then
+SIGC_MAJORMINOR=1.2
+else
+SIGC_MAJORMINOR=2.0
+fi
+
 if ! test "$enable_libeplayer3" = "yes"; then
 dnl versions of gstreamer and plugins-base
 AC_ARG_WITH(gstversion,
@@ -72,10 +82,13 @@ AC_ARG_WITH(gstversion,
 	[GST_MAJORMINOR=$withval],[GST_MAJORMINOR=0.10])
 
 PKG_CHECK_MODULES(GSTREAMER, gstreamer-$GST_MAJORMINOR gstreamer-pbutils-$GST_MAJORMINOR)
-PKG_CHECK_MODULES(BASE, [freetype2 fribidi gstreamer-$GST_MAJORMINOR gstreamer-pbutils-$GST_MAJORMINOR libdvbsi++ libpng libxml-2.0 sigc++-1.2 libssl libcrypto glib-2.0])
+PKG_CHECK_MODULES(BASE, [freetype2 fribidi gstreamer-$GST_MAJORMINOR gstreamer-pbutils-$GST_MAJORMINOR libdvbsi++ libpng libxml-2.0 libssl sigc++-$SIGC_MAJORMINOR libcrypto glib-2.0])
 else
-PKG_CHECK_MODULES(BASE, [freetype2 fribidi libdvbsi++ libpng libxml-2.0 sigc++-1.2 libssl libcrypto glib-2.0])
+PKG_CHECK_MODULES(BASE, [freetype2 fribidi libdvbsi++ libpng libxml-2.0 libssl sigc++-$SIGC_MAJORMINOR libcrypto glib-2.0])
 fi
+
+
+
 
 AM_CONDITIONAL(HAVE_LIBDDVD, test "$HAVE_LIBDDVD" = "yes")
 
@@ -251,6 +264,7 @@ fi
 
 ENIGMA2_CFLAGS="-fno-rtti -fno-exceptions"
 AC_SUBST(ENIGMA2_CFLAGS)
+AC_SUBST(SIGC_MAJORMINOR)
 
 CPPFLAGS="$CPPFLAGS $PYTHON_CPPFLAGS"
 CFLAGS="$CFLAGS $DEBUG_CFLAGS -Wall"
