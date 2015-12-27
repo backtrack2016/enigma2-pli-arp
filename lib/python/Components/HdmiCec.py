@@ -333,8 +333,6 @@ class HdmiCec:
 					self.wakeup()
 				elif cmd == 0x87 and (ord(data[0])==0x00 and ord(data[1])==0xE0 and ord(data[2])==0x91) and config.hdmicec.tv_wakeup_detection.value == "vendorid":
 					self.wakeup()
-				elif cmd == 0x87 and (ord(data[0])==0x00 and ord(data[1])==0xE0 and ord(data[2])==0x91) and config.hdmicec.tv_wakeup_detection.value == "vendorid":
-					self.wakeup()
 				elif cmd != 0x36 and config.hdmicec.tv_wakeup_detection.value == "activity":
 					self.wakeup()
 
