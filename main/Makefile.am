@@ -9,8 +9,6 @@ AM_CXXFLAGS = \
 
 bin_PROGRAMS = enigma2
 
-installdir = $(targetprefix)/usr/local/bin
-
 enigma2_SOURCES = \
 	bsod.cpp \
 	bsod.h \
@@ -46,8 +44,8 @@ enigma2_LDADD = \
 	@PYTHON_LDFLAGS@ \
 	@LIBDDVD_LIBS@ \
 	@ALSA_LIBS@ \
-	-ltuxtxt -ltuxtxt32bpp -lcrypt \
-	-ldl -lpthread -lcrypt -lresolv -lrt -lmmeimage
+	-ltuxtxt -ltuxtxt32bpp -lcrypt -lrt \
+	-ldl -lpthread -lresolv  -lmmeimage
 
 if ENABLE_LIBEPLAYER3
 enigma2_LDADD += \
