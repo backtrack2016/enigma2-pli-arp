@@ -68,9 +68,7 @@ class eServiceMP3InfoContainer: public iServiceInfoContainer
 	DECLARE_REF(eServiceMP3InfoContainer);
 
 	double doubleValue;
-#ifndef ENABLE_LIBEPLAYER3
 	GstBuffer *bufferValue;
-#endif
 
 	unsigned char *bufferData;
 	unsigned int bufferSize;
@@ -85,9 +83,7 @@ public:
 	double getDouble(unsigned int index) const;
 	unsigned char *getBuffer(unsigned int &size) const;
 	void setDouble(double value);
-#ifndef ENABLE_LIBEPLAYER3
 	void setBuffer(GstBuffer *buffer);
-#endif
 };
 
 class GstMessageContainer: public iObject
