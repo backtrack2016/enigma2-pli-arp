@@ -25,7 +25,7 @@ class UnionTunerType(Screen, ConfigListScreen):
 				"green": self.ok,
 				"red": self.cancel,
 			}, -2)
-			
+
 		t = None
 		if os_path.exists(filename):
 			settings = open(filename)
@@ -42,7 +42,7 @@ class UnionTunerType(Screen, ConfigListScreen):
 			settings.close()
 		if t is None:
 			t = 't'
-		
+
 		self.tunerconfig = ConfigSelection(default = t, choices = [ ('t', _("terrestrial")) , ('c', _("cable")) ])
 		conf = []
 		conf.append(getConfigListEntry(_("UnionTunerType"), self.tunerconfig))
@@ -60,7 +60,7 @@ class UnionTunerType(Screen, ConfigListScreen):
 
 	def ok(self):
 		if self.tunerconfig.isChanged():
-			self.session.openWithCallback(self.settingsWrite, MessageBox, 
+			self.session.openWithCallback(self.settingsWrite, MessageBox,
 			  (_("Are you sure to save the current configuration and reboot your receiver?\n\n") ))
 		else:
 			self.close()

@@ -130,7 +130,7 @@ class UpdatePlugin(Screen, ProtectedScreen):
 	def getLatestImageTimestamp(self):
 		# TODO: Impement own sh4 timestamp
 		return ""
-		
+
 		currentTimeoutDefault = socket.getdefaulttimeout()
 		socket.setdefaulttimeout(3)
 		latestImageTimestamp = ""

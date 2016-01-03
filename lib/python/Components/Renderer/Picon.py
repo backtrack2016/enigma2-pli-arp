@@ -147,4 +147,3 @@ class Picon(Renderer):
 if not piconInTmp:
 	harddiskmanager.on_partition_list_change.append(onPartitionChange)
 	initPiconPaths()
-

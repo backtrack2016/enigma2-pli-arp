@@ -138,7 +138,7 @@ class HdmiCec:
 		elif message == "poweron":
 			address = self.logicaladdress * 0x10
 			cmd = 0x90
-			data = str(struct.pack('B', 0x02))	
+			data = str(struct.pack('B', 0x02))
 		elif message == "reportaddress":
 			address = self.logicaladdress * 0x10 + 0x0f # use broadcast address
 			cmd = 0x84
@@ -174,7 +174,7 @@ class HdmiCec:
 		elif message == "vendorcommand3":
 			address = self.logicaladdress * 0x10
 			cmd = 0x89
-			data = '\x05\x04' 
+			data = '\x05\x04'
 		if cmd:
 			if config.hdmicec.minimum_send_interval.value != "0":
 				self.queue.append((address, cmd, data))
@@ -309,7 +309,7 @@ class HdmiCec:
 					if inStandby:
 						self.sendMessage(message.getAddress(), 'menuinactive')
 					else:
-						self.sendMessage(message.getAddress(), 'menuactive') 
+						self.sendMessage(message.getAddress(), 'menuactive')
 
 			# handle standby request from the tv
 			if cmd == 0x36 and config.hdmicec.handle_tv_standby.value:

@@ -620,7 +620,7 @@ class InfoBarHotkey():
 				command = '/usr/script/' + selected[1] + ".sh"
 				if os.path.isfile(command):
 					if selected[0] == "Backgroundscript":
-						from Components.Console import Console as eConsole					
+						from Components.Console import Console as eConsole
 						message = _("Execute %s") % (selected[1] + ".sh")
 						self.session.open(MessageBox, message, type = MessageBox.TYPE_INFO, timeout = 2)
 						eConsole().ePopen(command)

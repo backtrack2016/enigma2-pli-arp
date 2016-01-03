@@ -28,7 +28,7 @@ except:
 
 config.plugins.vfdicon = ConfigSubsection()
 config.plugins.vfdicon.displayshow = ConfigSelection(default = "channel",
-	choices = [("channel", _("channel")), ("channel number", 
+	choices = [("channel", _("channel")), ("channel number",
 		_("channel number")), ("clock", _("clock")), ("blank", _("blank"))])
 config.plugins.vfdicon.stbdisplayshow = ConfigSelection(default = "clock",
 	choices = [("clock", _("clock")), ("blank", _("blank"))])

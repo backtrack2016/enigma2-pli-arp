@@ -73,4 +73,3 @@ class ClockToText(Converter, object):
 		return strftime(d, t)
 
 	text = property(getText)
-

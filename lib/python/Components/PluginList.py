@@ -62,4 +62,3 @@ class PluginList(MenuList):
 		self.l.setItemHeight(font[2])
 		font = skin.fonts.get("PluginBrowser1", ("Regular", 14))
 		self.l.setFont(1, gFont(font[0], font[1]))
-

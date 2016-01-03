@@ -97,12 +97,12 @@ class ServiceScan:
 							channel = _("CH") + "%s " % channel
 						freqMHz = "%0.1f MHz" % (tp.frequency/1000000.)
 						tp_text = ("%s %s %s %s") %(
-							{ 
+							{
 								tp.System_DVB_T_T2 : "DVB-T/T2",
 								tp.System_DVB_T : "DVB-T",
 								tp.System_DVB_T2 : "DVB-T2"
 							}.get(tp.system, ""),
-							{ 
+							{
 								tp.Modulation_QPSK : "QPSK",
 								tp.Modulation_QAM16 : "QAM16", tp.Modulation_QAM64 : "QAM64",
 								tp.Modulation_Auto : "AUTO", tp.Modulation_QAM256 : "QAM256"
