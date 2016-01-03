@@ -1517,10 +1517,10 @@ class ChannelSelectionBase(Screen):
 								if service_type:
 									if unsigned_orbpos == 0xFFFF: #Cable
 										service_name = _("Cable")
-									addCableAndTerrestrialLater.append(("%s - %s" % (service_name, service_type), service.toString()))
+										addCableAndTerrestrialLater.append(("%s - %s" % (service_name, service_type), service.toString()))
 									elif unsigned_orbpos == 0xEEEE: #Terrestrial
 										service_name = _("Terrestrial")
-									addCableAndTerrestrialLater.append(("%s - %s" % (service_name, service_type), service.toString()))
+										addCableAndTerrestrialLater.append(("%s - %s" % (service_name, service_type), service.toString()))
 									else:
 										try:
 											service_name = str(nimmanager.getSatDescription(orbpos))
