@@ -4,7 +4,7 @@
 
 #include <lib/base/cfile.h>
 #include <lib/gdi/picload.h>
-#include "libmmeimage/libmmeimage.h"
+#include <libmmeimage/libmmeimage.h>
 
 extern "C" {
 #include <jpeglib.h>
