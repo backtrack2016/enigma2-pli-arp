@@ -110,8 +110,8 @@ AM_CONDITIONAL(HAVE_TEMPFANCONTROL, test "$BOXTYPE" == dm8000 -o "$BOXTYPE" == d
 if test `echo "$BOXTYPE" | cut -b 1-2` == "dm"; then
 	AC_DEFINE(DREAMBOX, 1, [Dreambox hardware])
 fi
-if test "$BOXTYPE" == "vusolo2" -o "$BOXTYPE" == "vuduo2" -o "$BOXTYPE" == "vusolose"; then
-	AC_DEFINE(VUPLUS_RC_WORKAROUND, 1, [workaround for problem with vusolo2/vuduo2/vusolose event/rc driver])
+if test "$BOXTYPE" == "vusolo2" -o "$BOXTYPE" == "vuduo2" -o "$BOXTYPE" == "vusolose" -o "$BOXTYPE" == "vusolo4k" -o "$BOXTYPE" == "vuzero"; then
+	AC_DEFINE(VUPLUS_RC_WORKAROUND, 1, [workaround for problem with vuplus event/rc driver])
 fi
 
 AC_ARG_WITH(textlcd,
@@ -143,16 +143,6 @@ if ! test x"$withlcd" != xno ; then
 	AC_DEFINE(NO_LCD, 1,[Define when not using a LCD display device])
 fi
 AM_CONDITIONAL(NO_LCD, test x"$withlcd" != xno)
-AC_ARG_WITH(oldpvr,
-	AC_HELP_STRING([--with-oldpvr], [use /dev/misc/pvr instead of /dev/dvb/adapterX/dvrX, yes or no]),
-	[[witholdpvr=$withval]],
-	[[witholdpvr=no]]
-)
-if test x"$witholdpvr" != xno ; then
-	AC_DEFINE(HAVE_OLDPVR, 1,[Define when using /dev/misc/pvr])
-fi
-AM_CONDITIONAL(HAVE_OLDPVR, test x"$witholdpvr" != xno)
-
 if test `echo "$BOXTYPE" | cut -b 1-2` == "vu"; then
 	AC_DEFINE(FORCE_NO_BLENDING_ACCELERATION, 1,[define when the framebuffer acceleration does not have alphablending support, though the autodetection might indicate that it does])
 	AC_DEFINE(FORCE_NO_FILL_ACCELERATION, 1,[define when the framebuffer acceleration does not have fill support])
@@ -312,8 +302,6 @@ lib/python/Plugins/SystemPlugins/DefaultServicesScanner/Makefile
 lib/python/Plugins/SystemPlugins/DefaultServicesScanner/meta/Makefile
 lib/python/Plugins/SystemPlugins/DiseqcTester/Makefile
 lib/python/Plugins/SystemPlugins/DiseqcTester/meta/Makefile
-lib/python/Plugins/SystemPlugins/FrontprocessorUpgrade/Makefile
-lib/python/Plugins/SystemPlugins/FrontprocessorUpgrade/meta/Makefile
 lib/python/Plugins/SystemPlugins/Hotplug/Makefile
 lib/python/Plugins/SystemPlugins/Hotplug/meta/Makefile
 lib/python/Plugins/SystemPlugins/Makefile
@@ -321,8 +309,6 @@ lib/python/Plugins/SystemPlugins/TempFanControl/Makefile
 lib/python/Plugins/SystemPlugins/TempFanControl/meta/Makefile
 lib/python/Plugins/SystemPlugins/NetworkWizard/Makefile
 lib/python/Plugins/SystemPlugins/NetworkWizard/meta/Makefile
-lib/python/Plugins/SystemPlugins/NFIFlash/Makefile
-lib/python/Plugins/SystemPlugins/NFIFlash/meta/Makefile
 lib/python/Plugins/SystemPlugins/PositionerSetup/Makefile
 lib/python/Plugins/SystemPlugins/PositionerSetup/meta/Makefile
 lib/python/Plugins/SystemPlugins/SatelliteEquipmentControl/Makefile

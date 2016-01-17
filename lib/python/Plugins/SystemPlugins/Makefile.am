@@ -14,13 +14,9 @@ if HAVE_TEMPFANCONTROL
 SUBDIRS += TempFanControl
 endif
 
-if DREAMBOX
-SUBDIRS += FrontprocessorUpgrade NFIFlash
 endif
 
 if ENABLE_SPARK7162
 SUBDIRS += UnionTunerType
-endif
-
 install_PYTHON =	\
 	__init__.py
