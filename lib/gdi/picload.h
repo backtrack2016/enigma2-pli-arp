@@ -106,7 +106,9 @@ public:
 	RESULT setPara(PyObject *val);
 	RESULT setPara(int width, int height, double aspectRatio, int as, bool useCache, int resizeType, const char *bg_str, bool auto_orientation);
 	PyObject *getInfo(const char *filename);
-	SWIG_VOID(int) getData(ePtr<gPixmap> &SWIG_OUTPUT);
+    SWIG_VOID(int) getData(ePtr<gPixmap> &SWIG_OUTPUT);
+private:
+    void gotMessageThread(const Message &msg);
 };
 
 //for old plugins

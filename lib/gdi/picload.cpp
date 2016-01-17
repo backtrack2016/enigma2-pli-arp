@@ -586,8 +586,8 @@ ePicLoad::ePicLoad():
 	msg_thread(this,1),
 	msg_main(eApp,1)
 {
-	CONNECT(msg_thread.recv_msg, ePicLoad::gotMessage);
-	CONNECT(msg_main.recv_msg, ePicLoad::gotMessage);
+    CONNECT(msg_thread.recv_msg, ePicLoad::gotMessageThread);
+    CONNECT(msg_main.recv_msg, ePicLoad::gotMessage);
 }
 
 ePicLoad::PConf::PConf():
@@ -604,6 +604,7 @@ ePicLoad::PConf::PConf():
 
 void ePicLoad::waitFinished()
 {
+    // eDebug("[ePicLoad] %lx send 3", this);
 	msg_thread.send(Message(Message::quit));
 	kill();
 }
@@ -843,26 +844,44 @@ void ePicLoad::decodeThumb()
 	}
 }
 
+void ePicLoad::gotMessageThread(const Message &msg)
+{
+   // eDebug("[ePicLoad] %lx gotMessage %d", this, msg);
+    switch (msg.type)
+    {
+        case Message::decode_Pic:
+            // eDebug("[ePicLoad] %lx start decoding", this);
+            decodePic();
+            // eDebug("[ePicLoad] %lx send 2", this);
+            msg_main.send(Message(Message::decode_finished));
+            break;
+        case Message::decode_Thumb:
+            decodeThumb();
+            // eDebug("[ePicLoad] %lx send 2", this);
+            msg_main.send(Message(Message::decode_finished));
+            break;
+        case Message::quit: // called from decode thread
+            // eDebug("[ePicLoad] %lx quit", this);
+            quit(0);
+            break;
+        default:
+            eDebug("[ePicLoad] unhandled thread message");
+    }
+
+}
+
 void ePicLoad::gotMessage(const Message &msg)
 {
+    eDebug("[ePicLoad] %lx gotMessage %d", this, msg);
 	switch (msg.type)
 	{
-		case Message::decode_Pic:
-			decodePic();
-			msg_main.send(Message(Message::decode_finished));
-			break;
-		case Message::decode_Thumb:
-			decodeThumb();
-			msg_main.send(Message(Message::decode_finished));
-			break;
-		case Message::quit: // called from decode thread
-			//eDebug("[ePicLoad] decode thread ... got quit msg");
-			quit(0);
-			break;
 		case Message::decode_finished: // called from main thread
-			//eDebug("[ePicLoad] decode finished... %s", m_filepara->file);
+            // eDebug("[ePicLoad] %lx finish %s", this, m_filepara->file);
 			if(m_filepara->callback)
+            {
 				PictureData(m_filepara->picinfo.c_str());
+                // eDebug("[ePicLoad] OK");
+            }
 			else
 			{
 				if(m_filepara != NULL)
@@ -923,7 +942,10 @@ int ePicLoad::startThread(int what, const char *file, int x, int y, bool async)
 
 	if (async) {
 		if(what == 1)
-			msg_thread.send(Message(Message::decode_Pic));
+        {
+            // eDebug("[ePicLoad %lx send 0", this);
+            msg_thread.send(Message(Message::decode_Pic));
+        }
 		else
 			msg_thread.send(Message(Message::decode_Thumb));
 		run();
