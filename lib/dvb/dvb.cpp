@@ -126,6 +126,31 @@ eDVBResourceManager::eDVBResourceManager()
 	CONNECT(m_releaseCachedChannelTimer->timeout, eDVBResourceManager::releaseCachedChannel);
 }
 
+#if defined(__sh__)
+void eDVBResourceManager::initDemux(int num_demux)
+{
+	char filename[32];
+	sprintf(filename, "/dev/dvb/adapter0/demux%d", num_demux);
+	int dmx = open(filename, O_RDWR | O_CLOEXEC);
+	if (dmx < 0)
+	{
+		eDebug("can't open %s (%m)", filename);
+	}
+	else
+	{
+		struct dmx_pes_filter_params filter;
+		memset(&filter, 0, sizeof(filter));
+		filter.output = DMX_OUT_DECODER;
+		filter.input  = DMX_IN_FRONTEND;
+		filter.flags  = DMX_IMMEDIATE_START;
+		filter.pes_type = DMX_PES_VIDEO;
+		ioctl(dmx, DMX_SET_PES_FILTER, &filter);
+		ioctl(dmx, DMX_STOP);
+		close(dmx);
+	}
+}
+#endif
+
 void eDVBResourceManager::feStateChanged()
 {
 	int mask=0;
