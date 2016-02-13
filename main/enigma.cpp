@@ -198,7 +198,9 @@ int main(int argc, char **argv)
 		debugLvl = 0;
 	printf("ENIGMA2_DEBUG settings: Level=%d\n", debugLvl);
 
+#if defined(__sh__)
 	CheckPrintkLevel();
+#endif
 
 	ePython python;
 	eMain main;

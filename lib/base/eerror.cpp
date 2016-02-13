@@ -7,7 +7,9 @@
 #include <cstring>
 #include <unistd.h>
 #include <time.h>
-
+#if defined(__sh__)
+#include <stdio.h>
+#endif
 #include <string>
 
 #ifdef MEMLEAK_CHECK
@@ -131,6 +133,21 @@ void retrieveLogBuffer(const char **p1, unsigned int *s1, const char **p2, unsig
 	}
 }
 
+#if defined(__sh__)
+void CheckPrintkLevel()
+{
+	FILE *f = fopen("/proc/sys/kernel/printk", "r");
+	if (f)
+	{
+		fscanf(f, "%u", &logOutputConsole);
+		if (logOutputConsole < 1)
+		{
+			printf("Printk level is %u, disble Enigma log in console!\n", logOutputConsole);
+		}
+		fclose(f);
+	}
+}
+#endif
 
 extern void bsodFatal(const char *component);
 
@@ -139,7 +156,12 @@ void eDebugImpl(int flags, const char* fmt, ...)
 	char buf[1024];
 	int pos = 0;
 
-	if (! (flags & _DBGFLG_NOTIME)) {
+#if defined(__sh__)
+	if (! (flags & _DBGFLG_NOTIME) && (logOutputConsole > 1))
+#else
+	if (! (flags & _DBGFLG_NOTIME))
+#endif
+	{
 		struct timespec tp;
 		clock_gettime(CLOCK_MONOTONIC, &tp);
 		pos = snprintf(buf, sizeof(buf), "<%6lu.%03lu> ", tp.tv_sec, tp.tv_nsec/1000000);
