@@ -57,13 +57,12 @@ if test "$enable_libeplayer3" = "yes"; then
 fi
 AM_CONDITIONAL(ENABLE_LIBEPLAYER3, test "$enable_libeplayer3" = "yes")
 
-AC_ARG_ENABLE(minimal,
-	[  --enable-minimal          enable minimal config],
-	[AC_DEFINE(ENABLE_MINIMAL, 1, [enable minimal config])])
-if test "$enable_minimal" = "yes"; then
-	AC_DEFINE(ENABLE_MINIMAL, 1, [enable minimal config])
-fi
-AM_CONDITIONAL(ENABLE_MINIMAL, test "$enable_minimal" = "yes")
+AC_ARG_ENABLE(arp_build,
+	[  --enable-arp-build          enable arp-build config],
+if test "$enable_arp_build" = "yes"; then
+    AC_DEFINE(ARP_BUILD, 1, [enable arp-build config.])
+fi)
+AM_CONDITIONAL(ARP_BUILD, test "$enable_arp_build" = "yes")
 
 AC_ARG_ENABLE(sigc2,
 	[  --enable-sigc2         enable sigc2 config],

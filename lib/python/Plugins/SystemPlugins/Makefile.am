@@ -6,9 +6,7 @@ SUBDIRS = SoftwareManager PositionerSetup Satfinder \
 	FastScan OSDPositionSetup OSD3DSetup HdmiCEC VideoClippingSetup \
 	VideoEnhancement NetworkWizard VFD-Icons
 
-if ! ENABLE_MINIMAL
 SUBDIRS += WirelessLan
-endif
 
 if HAVE_TEMPFANCONTROL
 SUBDIRS += TempFanControl
