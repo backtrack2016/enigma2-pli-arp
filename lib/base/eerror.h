@@ -110,6 +110,7 @@ void DumpUnfreed();
 #define CHECKFORMAT __attribute__ ((__format__(__printf__, 2, 3)))
 
 #if defined(__sh__)
+extern int logOutputConsole;
 void CheckPrintkLevel();
 #endif
 /*

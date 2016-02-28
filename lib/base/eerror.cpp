@@ -78,6 +78,10 @@ void DumpUnfreed()
 };
 #endif
 
+#if defined(__sh__)
+int logOutputConsole = 1;
+#endif
+
 int debugLvl = lvlDebug;
 
 static pthread_mutex_t DebugLock = PTHREAD_ADAPTIVE_MUTEX_INITIALIZER_NP;
@@ -200,7 +204,9 @@ void eDebugImpl(int flags, const char* fmt, ...)
 	}
 
 	logOutput(buf, pos);
-
+#if defined(__sh__)
+	if (logOutputConsole)
+#endif
 	::write(2, buf, pos);
 
 	delete[] buf;
