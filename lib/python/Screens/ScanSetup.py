@@ -400,7 +400,7 @@ class TerrestrialTransponderSearchSupport:
 						parm.guard_interval = parm.GuardInterval_Auto
 						parm.hierarchy = parm.Hierarchy_Auto
 						parm.system = 'DVB-T2' in data[1] and parm.System_DVB_T_T2 or parm.System_DVB_T
-						parm.plpid = 0
+						parm.plp_id = 0
 						self.__tlist.append(parm)
 					tmpstr = _("Try to find used transponders in terrestrial network... please wait...")
 					tmpstr += "\n\n"
@@ -432,7 +432,7 @@ class TerrestrialTransponderSearchSupport:
 					parm.guard_interval = parm.GuardInterval_Auto
 					parm.hierarchy = parm.Hierarchy_Auto
 					parm.system = parm.System_DVB_T
-					parm.plpid = 0
+					parm.plp_id = 0
 					self.__tlist.append(parm)
 				else:
 					plp_list = data[5:]
@@ -454,7 +454,7 @@ class TerrestrialTransponderSearchSupport:
 						parm.guard_interval = parm.GuardInterval_Auto
 						parm.hierarchy = parm.Hierarchy_Auto
 						parm.system = parm.System_DVB_T2
-						parm.plpid = int(plp_id)
+						parm.plp_id = int(plp_id)
 						self.__tlist.append(parm)
 				tmpstr = _("Try to find used transponders in terrestrial network... please wait...")
 				tmpstr += "\n\n"
