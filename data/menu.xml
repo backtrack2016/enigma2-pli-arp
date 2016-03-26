@@ -22,6 +22,16 @@
 			<item text="Deep standby" requires="DeepstandbySupport" entryID="deep_standby"><screen module="Standby" screen="TryQuitMainloop">1</screen></item>
 			<item text="Shutdown" requires="!DeepstandbySupport" entryID="deep_standby"><screen module="Standby" screen="TryQuitMainloop">1</screen></item>
 			<item level="2" text="Streaming clients info" entryID="streaming_clients_info_screen"><screen module="StreamingClientsInfo"/></item>
+			<!-- AR-P code in -->
+			<item text="Load Neutrino" entryID="load_neutrino">
+			<code>
+with open('/etc/.gui', 'w') as f:
+	f.write('neutrino')
+from Screens.Standby import TryQuitMainloop
+self.session.open(TryQuitMainloop, 3)
+</code>
+			</item>
+			<!-- AR-P code out -->
 		</menu>
 		<menu weight="1" level="0" text="Setup" flushConfigOnClose="1" entryID="setup_selection" >
 			<id val="setup"/>
