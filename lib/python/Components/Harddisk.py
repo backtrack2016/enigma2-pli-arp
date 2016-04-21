@@ -52,7 +52,8 @@ class Harddisk:
 		elif os.access("/dev/.devfsd", 0):
 			self.type = DEVTYPE_DEVFS
 		else:
-			print "Unable to determine structure of /dev"
+			print "[Harddisk] Unable to determine structure of /dev"
+			self.card = False
 
 		self.max_idle_time = 0
 		self.idle_running = False
@@ -68,16 +69,25 @@ class Harddisk:
 		self.phys_path = os.path.realpath(self.sysfsPath('device'))
 
 		if self.type is DEVTYPE_UDEV:
+		self.internal = "pci" in self.phys_path or "ahci" in self.phys_path
+		try:
+			data = open("/sys/block/%s/queue/rotational" % device, "r").read().strip()
+			self.rotational = int(data)
+		except:
+			self.rotational = True
+
 			self.dev_path = '/dev/' + self.device
 			self.disk_path = self.dev_path
+			self.card = "sdhci" in self.phys_path
 
 #+++>
 		elif self.type is DEVTYPE_DEVFS:
 			self.dev_path = '/dev/' + self.device
 			self.disk_path = self.dev_path
 #+++<
+			self.card = self.device[:2] == "hd" and "host0" not in self.dev_path
 
-		print "new Harddisk", self.device, '->', self.dev_path, '->', self.disk_path
+		print "[Harddisk] new device", self.device, '->', self.dev_path, '->', self.disk_path
 		if not removable:
 			self.startIdle()
 
@@ -102,28 +112,35 @@ class Harddisk:
 		ret = _("External")
 		# SD/MMC(F1 specific)
 		if self.type is DEVTYPE_UDEV:
-			card = "sdhci" in self.phys_path
 			type_name = " (SD/MMC)"
 		# CF(7025 specific)
 		elif self.type is DEVTYPE_DEVFS:
-			card = self.device[:2] == "hd" and "host0" not in self.dev_path
 			type_name = " (CF)"
 
-		internal = "pci" in self.phys_path or "ahci" in self.phys_path
-
-		if card:
+		if self.card:
 			ret += type_name
-		elif internal:
-			ret = _("Internal")
+		else:
+			if self.internal:
+				ret = _("Internal")
+			if not self.rotational:
+				ret += " (SSD)"
 		return ret
 
 	def diskSize(self):
 		try:
 			line = readFile(self.sysfsPath('size'))
 			cap = int(line)
+			return cap / 1000 * 512 / 1000
 		except:
-			return 0;
-		return cap / 1000 * 512 / 1000
+			dev = self.findMount()
+			if dev:
+				try:
+					stat = os.statvfs(dev)
+					cap = int(stat.f_blocks * stat.f_bsize)
+					return cap / 1000 / 1000
+				except:
+					pass
+		return cap
 
 	def capacity(self):
 		cap = self.diskSize()
@@ -144,7 +161,7 @@ class Harddisk:
 			elif self.device.startswith('mmcblk0'):
 				return readFile(self.sysfsPath('device/name'))
 			else:
-				raise Exception, "no hdX or sdX or mmcX"
+				raise Exception, "[Harddisk] no hdX or sdX or mmcX"
 		except Exception, e:
 			print "[Harddisk] Failed to get model:", e
 			return "-?-"
@@ -153,7 +170,7 @@ class Harddisk:
 		dev = self.findMount()
 		if dev:
 			stat = os.statvfs(dev)
-			return (stat.f_bfree/1000) * (stat.f_bsize/1000)
+			return (stat.f_bfree/1000) * (stat.f_bsize/1024)
 		return -1
 
 	def numPartitions(self):
@@ -185,6 +202,7 @@ class Harddisk:
 				self.mount_device = parts[0]
 				self.mount_path = parts[1]
 				return parts[1]
+		return None
 
 	def enumMountDevices(self):
 		for parts in getProcMounts():
@@ -911,11 +929,23 @@ class MkfsTask(Task.LoggingTask):
 
 harddiskmanager = HarddiskManager()
 
+def isSleepStateATA(device):
+	ret = os.popen("hdparm -C %s" % device).read()
+	if 'drive state is:  standby' in ret:
+		return True
+	elif 'drive state is:  active/idle' in ret:
+		return False
+	return True
+
 def internalHDDNotSleeping():
+	state = False
 	if harddiskmanager.HDDCount():
 		for hdd in harddiskmanager.HDDList():
-			if ("pci" in hdd[1].phys_path or "ahci" in hdd[1].phys_path) and hdd[1].max_idle_time and not hdd[1].isSleeping():
-				return True
-	return False
+			if hdd[1].internal:
+				if hdd[1].removable and hdd[1].max_idle_time and not hdd[1].isSleeping():
+					state = True
+				elif not hdd[1].removable and not hdd[1].rotational and not hdd[1].card and not isSleepStateATA(hdd[1].disk_path):
+					state = True
+	return state
 
 SystemInfo["ext4"] = isFileSystemSupported("ext4")
