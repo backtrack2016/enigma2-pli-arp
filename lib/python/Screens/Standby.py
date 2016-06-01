@@ -12,12 +12,16 @@ from Components.SystemInfo import SystemInfo
 from Tools import Notifications
 from GlobalActions import globalActionMap
 from enigma import eDVBVolumecontrol, eTimer, eDVBLocalTimeHandler, eServiceReference
+from subprocess import call
 
 inStandby = None
 
 class Standby(Screen):
 	def Power(self):
 		print "[Standby] leave standby"
+#+++>
+		call("/bin/vdstandby -d &", shell="true")
+#+++<
 		self.leaveMute()
 		self.close(True)
 
@@ -66,7 +70,7 @@ class Standby(Screen):
 		self.prev_running_service = self.session.nav.getCurrentlyPlayingServiceOrGroup()
 		service = self.prev_running_service and self.prev_running_service.toString()
 		if service:
-			if service.rsplit(":", 1)[1].startswith("/"):
+			if service.rsplit(":", 1)[1][:1] == "/":
 				self.paused_service = hasattr(self.session.current_dialog, "pauseService") and hasattr(self.session.current_dialog, "unPauseService") and self.session.current_dialog or self.infoBarInstance
 				self.paused_action = hasattr(self.paused_service, "seekstate") and hasattr(self.paused_service, "SEEK_STATE_PLAY") and self.paused_service.seekstate == self.paused_service.SEEK_STATE_PLAY
 				self.paused_action and self.paused_service.pauseService()
@@ -88,6 +92,9 @@ class Standby(Screen):
 			self.avswitch.setInput("SCART")
 		else:
 			self.avswitch.setInput("AUX")
+#+++>
+		call("/bin/vdstandby -a &", shell="true")
+#+++<
 
 		gotoShutdownTime = int(config.usage.standby_to_shutdown_timer.value)
 		if gotoShutdownTime:
